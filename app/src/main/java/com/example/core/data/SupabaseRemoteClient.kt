@@ -422,10 +422,17 @@ class SupabaseRemoteClient(
         accessToken: String
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            val safeDetails = if (conversationId != null && !conversationId.matches(
+                    Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+                )) {
+                (details.trim() + " (مرجع المحادثة داخل التطبيق: " + conversationId.take(80) + ")").take(1000)
+            } else details.trim()
             val payload = JSONObject().put("reporter_id", reporterId)
-                .put("reason", reason.trim()).put("details", details.trim())
-            if (reportId != null) payload.put("report_id", reportId)
-            if (conversationId != null) payload.put("conversation_id", conversationId)
+                .put("reason", reason.trim()).put("details", safeDetails)
+            if (reportId != null && reportId.matches(Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"))) payload.put("report_id", reportId)
+            if (conversationId != null && conversationId.matches(
+                    Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+                )) payload.put("conversation_id", conversationId)
             val request = Request.Builder().url("$baseUrl/rest/v1/reports_flags")
                 .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
                 .addHeader("Content-Type", "application/json").addHeader("Prefer", "return=minimal")

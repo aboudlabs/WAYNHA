@@ -605,10 +605,11 @@ class WaynhaRepository(
                     return Result.failure(IOException("تم نشر البلاغ، لكن لم تُحفظ أسئلة التحقق. لا تسلّم الغرض قبل ضبط أسئلة التحقق من جديد."))
                 }
             }
-            reports.add(0, savedRemote)
-            recalculateMatchesAndNotify(savedRemote)
+            val savedWithPrivateMarks = savedRemote.copy(distinguishingMarks = distinguishingMarks.trim())
+            reports.add(0, savedWithPrivateMarks)
+            recalculateMatchesAndNotify(savedWithPrivateMarks)
             persistState()
-            return Result.success(savedRemote)
+            return Result.success(savedWithPrivateMarks)
         }
 
         reports.add(0, newReport)

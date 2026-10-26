@@ -164,6 +164,19 @@ class WaynhaViewModel(
                 }
             }
         }
+        if (user != null && repository.isLiveSupabaseConnected) {
+            viewModelScope.launch {
+                repository.refreshLiveConversations(user).onSuccess { liveConversations ->
+                    _uiState.update { it.copy(conversations = liveConversations) }
+                    val activeId = _uiState.value.activeConversationId
+                    if (activeId != null) {
+                        repository.refreshLiveMessages(activeId).onSuccess { liveMessages ->
+                            _uiState.update { it.copy(activeConversationMessages = liveMessages) }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -276,6 +289,15 @@ class WaynhaViewModel(
             )
         }
         refreshAllState()
+        if (repository.isLiveSupabaseConnected) {
+            viewModelScope.launch {
+                repository.refreshLiveMessages(conversationId).onSuccess { messages ->
+                    _uiState.update { state ->
+                        if (state.activeConversationId == conversationId) state.copy(activeConversationMessages = messages) else state
+                    }
+                }.onFailure { showBanner(it.message ?: "تعذر تحميل الرسائل.", true) }
+            }
+        }
     }
 
     fun toggleDarkMode() {
@@ -601,30 +623,34 @@ class WaynhaViewModel(
     // -------------------------------------------------------------------------
     fun initiateSafeChatFromReport(reportId: String, matchedReportId: String? = null) {
         if (_uiState.value.isSubmitting) return
-        _uiState.update { it.copy(isSubmitting = true) }
-        val res = repository.startSafeConversationForReport(
-            targetReportId = reportId,
-            matchedReportId = matchedReportId
-        )
-        _uiState.update { it.copy(isSubmitting = false) }
-        res.onSuccess { conv ->
-            refreshAllState()
-            openConversationRoom(conv.id)
-        }.onFailure { err ->
-            showBanner(err.message ?: "تعذر بدء المحادثة الآمنة.", isError = true)
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            val res = repository.startSafeConversationForReport(
+                targetReportId = reportId,
+                matchedReportId = matchedReportId
+            )
+            _uiState.update { it.copy(isSubmitting = false) }
+            res.onSuccess { conv ->
+                refreshAllState()
+                openConversationRoom(conv.id)
+            }.onFailure { err ->
+                showBanner(err.message ?: "تعذر بدء المحادثة الآمنة.", isError = true)
+            }
         }
     }
 
     fun sendChatMessage(body: String) {
         val convId = _uiState.value.activeConversationId ?: return
         if (_uiState.value.isSubmitting) return
-        _uiState.update { it.copy(isSubmitting = true) }
-        val res = repository.sendMessage(convId, body)
-        _uiState.update { it.copy(isSubmitting = false) }
-        res.onSuccess {
-            refreshAllState()
-        }.onFailure { err ->
-            showBanner(err.message ?: "فشل إرسال الرسالة.", isError = true)
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            val res = repository.sendMessage(convId, body)
+            _uiState.update { it.copy(isSubmitting = false) }
+            res.onSuccess {
+                refreshAllState()
+            }.onFailure { err ->
+                showBanner(err.message ?: "فشل إرسال الرسالة.", isError = true)
+            }
         }
     }
 

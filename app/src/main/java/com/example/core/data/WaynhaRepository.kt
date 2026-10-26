@@ -572,14 +572,16 @@ class WaynhaRepository(
             createdAtEpochMillis = System.currentTimeMillis()
         )
 
-        if (isLiveSupabaseConnected && accessToken != null) {
-            val remoteRes = remoteClient.insertReportToSupabase(newReport, accessToken!!)
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول أو لم تكتمل. سجّل الخروج ثم ادخل من جديد قبل نشر البلاغ."))
+            val remoteRes = remoteClient.insertReportToSupabase(newReport, token)
             if (remoteRes.isFailure) {
                 return Result.failure(remoteRes.exceptionOrNull() ?: IOException("فشل حفظ البلاغ في Supabase"))
             }
             val savedRemote = remoteRes.getOrThrow()
             if (reportType == ReportType.FOUND) {
-                val questionsRes = remoteClient.setVerificationQuestions(savedRemote.id, verificationQuestions, accessToken!!)
+                val questionsRes = remoteClient.setVerificationQuestions(savedRemote.id, verificationQuestions, token)
                 if (questionsRes.isFailure) {
                     return Result.failure(IOException("تم نشر البلاغ، لكن لم تُحفظ أسئلة التحقق. لا تسلّم الغرض قبل ضبط أسئلة التحقق من جديد."))
                 }

@@ -5,6 +5,7 @@ import com.example.core.model.ChatMessage
 import com.example.core.model.Conversation
 import com.example.core.model.ItemReport
 import com.example.core.model.ReportImage
+import com.example.core.model.RecoveryRequest
 import com.example.core.model.ReportStatus
 import com.example.core.model.ReportType
 import com.example.core.model.SystemLocationSettings
@@ -408,6 +409,36 @@ class SupabaseRemoteClient(
             }
         } catch (e: Exception) { Result.failure(e) }
     }
+
+
+    suspend fun fetchRecoveryRequests(reportId: String, accessToken: String): Result<List<RecoveryRequest>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val encodedId = java.net.URLEncoder.encode(reportId, "UTF-8")
+                val request = Request.Builder().url("$baseUrl/rest/v1/recovery_requests?report_id=eq.$encodedId&select=*&order=created_at.desc")
+                    .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken").get().build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر تحميل طلبات الاستعادة.")))
+                    val arr = JSONArray(body)
+                    Result.success((0 until arr.length()).map { i ->
+                        val o = arr.getJSONObject(i)
+                        RecoveryRequest(
+                            id = o.optString("id"),
+                            reportId = o.optString("report_id"),
+                            claimantId = o.optString("claimant_id"),
+                            finderId = o.optString("finder_id"),
+                            message = o.optString("message"),
+                            status = o.optString("status", "pending"),
+                            ownerConfirmed = o.optBoolean("owner_confirmed"),
+                            finderConfirmed = o.optBoolean("finder_confirmed"),
+                            handoverNotes = o.optString("handover_notes"),
+                            createdAtText = o.optString("created_at")
+                        )
+                    })
+                }
+            } catch (e: Exception) { Result.failure(e) }
+        }
 
     suspend fun reviewRecoveryRequest(requestId: String, accept: Boolean, accessToken: String): Result<Unit> =
         callRecoveryRpc("review_recovery_request", JSONObject().put("p_request_id", requestId).put("p_accept", accept), accessToken)

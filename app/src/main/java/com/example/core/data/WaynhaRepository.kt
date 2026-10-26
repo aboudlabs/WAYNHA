@@ -1049,7 +1049,7 @@ class WaynhaRepository(
     // -------------------------------------------------------------------------
     // 5. عمليات لوحة الإدارة الآمنة (Admin Operations + Audit Logs)
     // -------------------------------------------------------------------------
-    fun adminHideFlaggedReport(
+    suspend fun adminHideFlaggedReport(
         adminUser: UserProfile?,
         reportId: String,
         flagId: String?,
@@ -1057,6 +1057,14 @@ class WaynhaRepository(
     ): Result<Unit> {
         if (!WaynhaSecurityValidator.canAccessAdminDashboard(adminUser)) {
             return Result.failure(SecurityException("رفض الخادم (RLS): صلاحية الإدارة مطلوبة لإخفاء المحتوى المخالف."))
+        }
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            if (flagId != null) {
+                val remoteReview = remoteClient.reviewReportFlag(flagId, "hide", reasonNotes, token)
+                if (remoteReview.isFailure) return Result.failure(remoteReview.exceptionOrNull() ?: IOException("تعذر مراجعة البلاغ."))
+            }
         }
         val idx = reports.indexOfFirst { it.id == reportId }
         if (idx == -1) return Result.failure(IllegalArgumentException("البلاغ غير موجود."))
@@ -1081,6 +1089,31 @@ class WaynhaRepository(
                 createdAtText = nowFormatted()
             )
         )
+        persistState()
+        return Result.success(Unit)
+    }
+
+    suspend fun adminDismissReportFlag(adminUser: UserProfile?, flagId: String, notes: String): Result<Unit> {
+        if (!WaynhaSecurityValidator.canAccessAdminDashboard(adminUser)) {
+            return Result.failure(SecurityException("صلاحية الإدارة مطلوبة لمراجعة البلاغات."))
+        }
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            val remote = remoteClient.reviewReportFlag(flagId, "dismiss", notes, token)
+            if (remote.isFailure) return Result.failure(remote.exceptionOrNull() ?: IOException("تعذر حفظ قرار المراجعة."))
+        }
+        reportFlags.replaceAll { if (it.id == flagId) it.copy(status = "dismissed") else it }
+        adminAuditLogs.add(0, AdminAuditLog(
+            id = "audit_${UUID.randomUUID().toString().take(8)}",
+            adminId = adminUser!!.id,
+            adminName = adminUser.fullName,
+            actionType = "dismiss_report_flag",
+            targetTable = "reports_flags",
+            targetId = flagId,
+            notes = notes,
+            createdAtText = nowFormatted()
+        ))
         persistState()
         return Result.success(Unit)
     }

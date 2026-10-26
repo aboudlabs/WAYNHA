@@ -188,88 +188,151 @@ fun OnboardingScreen(
     onFinishOnboarding: () -> Unit,
     onGoToAuth: () -> Unit
 ) {
+    var page by remember { mutableIntStateOf(0) }
+    val titles = listOf(
+        "كل المفقودات بمكان واحد",
+        "انشر بلاغك بسهولة",
+        "تأكد من صاحب الغرض",
+        "استعد غرضك بأمان"
+    )
+    val descriptions = listOf(
+        "تصفّح بلاغات الأغراض المفقودة والموجودة ضمن أحياء حمص، وابحث عن غرضك بسرعة.",
+        "أضف وصفاً وصوراً ومعلومات عن مكان الفقد أو العثور، ليساعدك المجتمع في الوصول للنتيجة.",
+        "أسئلة تحقق خاصة تساعد صاحب الغرض والشخص الذي وجده على التأكد من التفاصيل قبل التسليم.",
+        "تواصل عبر المحادثة داخل التطبيق، وأكّدوا التسليم معاً دون نشر أرقام الهواتف علناً."
+    )
+    val icons = listOf(
+        Icons.Default.Search,
+        Icons.Default.LocationOn,
+        Icons.Default.Shield,
+        Icons.Default.CheckCircle
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp)
+            .padding(horizontal = 24.dp, vertical = 20.dp)
             .testTag("onboarding_screen"),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "وينها؟",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            TextButton(
+                onClick = onGoToAuth,
+                modifier = Modifier.testTag("onboarding_btn_skip")
+            ) { Text("تخطي") }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
         Image(
             painter = painterResource(id = R.drawable.img_homs_hero),
             contentDescription = "رسم توضيحي لمجتمع مدينة حمص",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(180.dp)
-                .clip(RoundedCornerShape(22.dp)),
+                .height(220.dp)
+                .clip(RoundedCornerShape(26.dp)),
             contentScale = ContentScale.Crop
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(4) { index ->
+                Surface(
+                    modifier = Modifier
+                        .width(if (index == page) 28.dp else 8.dp)
+                        .height(8.dp),
+                    shape = RoundedCornerShape(50),
+                    color = if (index == page) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outlineVariant
+                ) {}
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        Surface(
+            modifier = Modifier.size(76.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icons[page],
+                    contentDescription = null,
+                    modifier = Modifier.size(38.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(22.dp))
 
         Text(
-            text = "مجتمع حمص يتعاون لاستعادة المفقودات",
+            text = titles[page],
             style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "يساعد تطبيق WAYNHA (وينها؟) أهالي مدينة حمص على الإبلاغ عن الأغراض المفقودة والموجودة ومطابقتها تلقائياً بأمان.",
+            text = descriptions[page],
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        OnboardingFeatureItem(
-            icon = Icons.Default.Search,
-            title = "مطابقة ذكية داخل أحياء حمص",
-            description = "نقارن التصنيف والحي والتاريخ والعلامات المميزة لنقترح عليك البلاغات المتشابهة في الإنشاءات، الحمراء، الوعر، الغوطة وبقية أحياء حمص."
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OnboardingFeatureItem(
-            icon = Icons.Default.Shield,
-            title = "خصوصية كاملة بدون نشر رقم هاتفك",
-            description = "لا نعرض رقم هاتفك أو عنوانك الدقيق علناً، ولا نسمح بنشر وثائق مكشوفة البيانات. يتم التواصل عبر محادثة آمنة مرتبطة بالبلاغ."
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        OnboardingFeatureItem(
-            icon = Icons.Default.CheckCircle,
-            title = "تأكيد الاستعادة وإغلاق البلاغ",
-            description = "عند استعادة الغرض، يتم توثيق الاستلام وإغلاق البلاغ وإيقاف التنبيهات الجديدة فوراً."
-        )
-
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Button(
-            onClick = onFinishOnboarding,
+            onClick = {
+                if (page < 3) page++ else onGoToAuth()
+            },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
-                .testTag("onboarding_btn_start")
+                .height(54.dp)
+                .testTag("onboarding_btn_next")
         ) {
-            Text("ابدأ تصفح بلاغات حمص")
+            Text(if (page < 3) "التالي" else "تسجيل الدخول أو إنشاء حساب")
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        OutlinedButton(
-            onClick = onGoToAuth,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .testTag("onboarding_btn_auth")
+        if (page > 0) {
+            OutlinedButton(
+                onClick = { page-- },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .testTag("onboarding_btn_back")
+            ) {
+                Text("السابق")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        TextButton(
+            onClick = onFinishOnboarding,
+            modifier = Modifier.testTag("onboarding_btn_guest")
         ) {
-            Text("تسجيل الدخول أو إنشاء حساب")
+            Text("تصفح التطبيق كزائر")
         }
     }
 }
@@ -469,6 +532,18 @@ fun AuthScreen(
                 else if (selectedTab == 0) "تسجيل الدخول"
                 else "إنشاء الحساب في حمص"
             )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        OutlinedButton(
+            onClick = onBackToHome,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .testTag("auth_btn_guest")
+        ) {
+            Text("تصفح التطبيق كزائر")
         }
 
         if (!uiState.isLiveSupabaseConnected) {

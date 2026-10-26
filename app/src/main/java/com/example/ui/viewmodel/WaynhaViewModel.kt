@@ -99,11 +99,25 @@ class WaynhaViewModel(
         WaynhaRepository(application.applicationContext)
     )
 
-    private val _uiState = MutableStateFlow(WaynhaUiState())
+    private val introPrefs = application.getSharedPreferences("waynha_intro", android.content.Context.MODE_PRIVATE)
+    private val _uiState = MutableStateFlow(
+        WaynhaUiState(
+            currentScreen = if (introPrefs.getBoolean("intro_completed", false)) {
+                WaynhaScreen.HOME
+            } else {
+                WaynhaScreen.SPLASH
+            }
+        )
+    )
     val uiState: StateFlow<WaynhaUiState> = _uiState.asStateFlow()
 
     init {
         refreshAllState()
+    }
+
+    fun completeIntroAndNavigate(target: WaynhaScreen) {
+        introPrefs.edit().putBoolean("intro_completed", true).apply()
+        navigateTo(target, clearHistory = true)
     }
 
     fun refreshAllState() {

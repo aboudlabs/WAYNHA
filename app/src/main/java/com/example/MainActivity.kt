@@ -245,6 +245,15 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onOpenCounterpartReport = { id -> viewModel.openReportDetails(id) },
                                 onSubmitAbuseFlag = { repId, reason, details ->
                                     viewModel.submitAbuseFlag(repId, null, reason, details)
+                                },
+                                onSubmitRecoveryRequest = { repId, answers, message ->
+                                    viewModel.submitRecoveryRequest(repId, answers, message)
+                                },
+                                onReviewRecoveryRequest = { repId, requestId, accept ->
+                                    viewModel.reviewRecoveryRequest(repId, requestId, accept)
+                                },
+                                onConfirmHandover = { repId, requestId, notes ->
+                                    viewModel.confirmRecoveryHandover(repId, requestId, notes)
                                 }
                             )
                         }

@@ -438,6 +438,23 @@ class SupabaseRemoteClient(
         } catch (e: Exception) { Result.failure(e) }
     }
 
+
+    suspend fun reviewReportFlag(flagId: String, action: String, notes: String, accessToken: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val payload = JSONObject().put("p_flag_id", flagId).put("p_action", action).put("p_notes", notes)
+                val request = Request.Builder().url("$baseUrl/rest/v1/rpc/review_report_flag")
+                    .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Content-Type", "application/json")
+                    .post(payload.toString().toRequestBody(jsonMediaType)).build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, "تعذر حفظ قرار المراجعة.")))
+                    else Result.success(Unit)
+                }
+            } catch (e: Exception) { Result.failure(e) }
+        }
+
     suspend fun fetchReportFlags(accessToken: String): Result<List<ReportFlag>> =
         withContext(Dispatchers.IO) {
             try {

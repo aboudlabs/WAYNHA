@@ -354,7 +354,7 @@ class SupabaseRemoteClient(
         accessToken: String
     ): Result<List<Conversation>> = withContext(Dispatchers.IO) {
         try {
-            val url = "$baseUrl/rest/v1/conversations?select=*,reports(title,report_type),initiator:profiles!conversations_initiator_id_fkey(full_name),recipient:profiles!conversations_recipient_id_fkey(full_name),messages(body,created_at)&or=(initiator_id.eq.${user.id},recipient_id.eq.${user.id})&order=updated_at.desc"
+            val url = "$baseUrl/rest/v1/conversations?select=*,report:reports!conversations_report_id_fkey(title,report_type),initiator:profiles!conversations_initiator_id_fkey(full_name),recipient:profiles!conversations_recipient_id_fkey(full_name),messages(body,created_at)&or=(initiator_id.eq.${user.id},recipient_id.eq.${user.id})&order=updated_at.desc"
             val request = Request.Builder().url(url).addHeader("apikey", anonKey)
                 .addHeader("Authorization", "Bearer $accessToken").get().build()
             httpClient.newCall(request).execute().use { response ->
@@ -363,7 +363,7 @@ class SupabaseRemoteClient(
                 val arr = JSONArray(body)
                 Result.success((0 until arr.length()).map { i ->
                     val o = arr.getJSONObject(i)
-                    val report = o.optJSONObject("reports")
+                    val report = o.optJSONObject("report")
                     val initiator = o.optJSONObject("initiator")
                     val recipient = o.optJSONObject("recipient")
                     val msgs = o.optJSONArray("messages")
@@ -421,7 +421,7 @@ class SupabaseRemoteClient(
         accessToken: String
     ): Result<Conversation> = withContext(Dispatchers.IO) {
         try {
-            val query = "$baseUrl/rest/v1/conversations?report_id=eq.${report.id}&select=*,reports(title,report_type),initiator:profiles!conversations_initiator_id_fkey(full_name),recipient:profiles!conversations_recipient_id_fkey(full_name)"
+            val query = "$baseUrl/rest/v1/conversations?report_id=eq.${report.id}&select=*,report:reports!conversations_report_id_fkey(title,report_type),initiator:profiles!conversations_initiator_id_fkey(full_name),recipient:profiles!conversations_recipient_id_fkey(full_name)"
             val get = Request.Builder().url(query).addHeader("apikey", anonKey)
                 .addHeader("Authorization", "Bearer $accessToken").get().build()
             val existing = httpClient.newCall(get).execute().use { response ->
@@ -438,7 +438,7 @@ class SupabaseRemoteClient(
             val payload = JSONObject().put("report_id", report.id)
                 .put("initiator_id", user.id).put("recipient_id", report.userId).put("status", "active")
             if (!matchedReportId.isNullOrBlank()) payload.put("matched_report_id", matchedReportId)
-            val post = Request.Builder().url("$baseUrl/rest/v1/conversations?select=*,reports(title,report_type),initiator:profiles!conversations_initiator_id_fkey(full_name),recipient:profiles!conversations_recipient_id_fkey(full_name)")
+            val post = Request.Builder().url("$baseUrl/rest/v1/conversations?select=*,report:reports!conversations_report_id_fkey(title,report_type),initiator:profiles!conversations_initiator_id_fkey(full_name),recipient:profiles!conversations_recipient_id_fkey(full_name)")
                 .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
                 .addHeader("Content-Type", "application/json").addHeader("Prefer", "return=representation")
                 .post(payload.toString().toRequestBody(jsonMediaType)).build()
@@ -499,7 +499,7 @@ class SupabaseRemoteClient(
     }
 
     private fun parseConversation(o: JSONObject): Conversation {
-        val report = o.optJSONObject("reports")
+        val report = o.optJSONObject("report")
         return Conversation(
             id = o.optString("id"), reportId = o.optString("report_id"),
             reportTitle = report?.optString("title") ?: "بلاغ",

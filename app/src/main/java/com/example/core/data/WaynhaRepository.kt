@@ -272,6 +272,21 @@ class WaynhaRepository(
         return Result.success(reportFlags.toList())
     }
 
+    suspend fun refreshLiveReportFlagsForAdmin(requester: UserProfile?): Result<List<ReportFlag>> {
+        if (!WaynhaSecurityValidator.canAccessAdminDashboard(requester)) {
+            return Result.failure(SecurityException("رفض الوصول: غير مصرح لغير المدير بمراجعة البلاغات المخالفة."))
+        }
+        if (!isLiveSupabaseConnected) return Result.success(reportFlags.toList())
+        val token = accessToken?.takeIf { it.isNotBlank() }
+            ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+        val result = remoteClient.fetchReportFlags(token)
+        result.onSuccess { liveFlags ->
+            reportFlags.clear()
+            reportFlags.addAll(liveFlags)
+        }
+        return result
+    }
+
     fun getAuditLogsForAdmin(requester: UserProfile?): Result<List<AdminAuditLog>> {
         if (!WaynhaSecurityValidator.canAccessAdminDashboard(requester)) {
             return Result.failure(SecurityException("رفض الوصول: سجلات التدقيق متاحة للإدارة فقط."))
@@ -978,7 +993,7 @@ class WaynhaRepository(
     // -------------------------------------------------------------------------
     // 4. الإبلاغ عن المخالفات والحظر (Flags & Blocks)
     // -------------------------------------------------------------------------
-    fun flagReportOrConversation(
+    suspend fun flagReportOrConversation(
         reportId: String?,
         conversationId: String?,
         reason: String,
@@ -987,6 +1002,12 @@ class WaynhaRepository(
         val user = currentUser ?: return Result.failure(SecurityException("يرجى تسجيل الدخول للإبلاغ عن مخالفة."))
         if (reason.trim().length < 3) {
             return Result.failure(IllegalArgumentException("يرجى تحديد سبب الإبلاغ."))
+        }
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً لإرسال البلاغ."))
+            val remote = remoteClient.submitReportFlag(user.id, reportId, conversationId, reason, details, token)
+            if (remote.isFailure) return Result.failure(remote.exceptionOrNull() ?: IOException("تعذر إرسال البلاغ للمراجعة."))
         }
         val targetTitle = reportId?.let { getReportById(it)?.title } ?: "محادثة مستخدم"
         val flag = ReportFlag(

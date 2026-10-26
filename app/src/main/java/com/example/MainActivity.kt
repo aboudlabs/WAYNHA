@@ -109,14 +109,14 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                         WaynhaScreen.SPLASH -> {
                             SplashScreen(
                                 onContinueToOnboarding = { viewModel.navigateTo(WaynhaScreen.ONBOARDING) },
-                                onSkipToHome = { viewModel.navigateTo(WaynhaScreen.HOME, clearHistory = true) }
+                                onSkipToHome = { viewModel.completeIntroAndNavigate(WaynhaScreen.AUTH) }
                             )
                         }
 
                         WaynhaScreen.ONBOARDING -> {
                             OnboardingScreen(
-                                onFinishOnboarding = { viewModel.navigateTo(WaynhaScreen.HOME, clearHistory = true) },
-                                onGoToAuth = { viewModel.navigateTo(WaynhaScreen.AUTH) }
+                                onFinishOnboarding = { viewModel.completeIntroAndNavigate(WaynhaScreen.HOME) },
+                                onGoToAuth = { viewModel.completeIntroAndNavigate(WaynhaScreen.AUTH) }
                             )
                         }
 
@@ -130,7 +130,7 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onQuickSwitchDemoAccount = { email, pass ->
                                     viewModel.switchDemoAccount(email, pass)
                                 },
-                                onBackToHome = { viewModel.navigateTo(WaynhaScreen.HOME, clearHistory = true) }
+                                onBackToHome = { viewModel.completeIntroAndNavigate(WaynhaScreen.HOME) }
                             )
                         }
 

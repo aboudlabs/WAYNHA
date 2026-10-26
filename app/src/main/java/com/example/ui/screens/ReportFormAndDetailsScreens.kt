@@ -900,7 +900,7 @@ fun ReportDetailsScreen(
                             Text("تعديل البلاغ")
                         }
 
-                        if (report.status.isEligibleForMatching) {
+                        if (report.status.isEligibleForMatching && report.reportType == ReportType.LOST) {
                             Button(
                                 onClick = { showRecoveryDialog = true },
                                 modifier = Modifier

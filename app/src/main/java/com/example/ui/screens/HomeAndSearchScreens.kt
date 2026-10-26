@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -252,26 +253,43 @@ fun HomeScreen(
                 shape = RoundedCornerShape(22.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
             ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(190.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                ) {
                     Image(
                         painter = painterResource(id = R.drawable.img_homs_hero),
                         contentDescription = "بنر مدينة حمص",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(136.dp),
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0x22051010),
+                                        Color(0xB8051716),
+                                        Color(0xF0082421)
+                                    )
+                                )
+                            )
                     )
                     Column(
                         modifier = Modifier
+                            .align(Alignment.BottomStart)
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
                     ) {
                         Surface(
-                            color = Color.Black.copy(alpha = 0.35f),
+                            color = Color(0xCC062E2A),
                             shape = RoundedCornerShape(50)
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
@@ -280,25 +298,32 @@ fun HomeScreen(
                                     tint = Color(0xFFFBBF24),
                                     modifier = Modifier.size(16.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = "بلاغات المفقودات والموجودات في أحياء حمص",
+                                    text = "المفقودات والموجودات • حمص",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = Color.White
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(9.dp))
                         Text(
-                            text = "«ضاع منك شي؟ خلّينا نلاقيه.»",
+                            text = "ضاع منك شي؟",
                             style = MaterialTheme.typography.headlineMedium,
                             color = Color.White,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.ExtraBold
                         )
                         Text(
-                            text = "تواصل آمن بين أهل حمص دون كشف الأرقام الشخصية",
+                            text = "خلّينا نلاقيه",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color(0xFF6EE7D2),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "مع بعض منساعدك تلاقيه بأمان",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.9f)
+                            color = Color(0xFFF1F5F9)
                         )
                     }
                 }

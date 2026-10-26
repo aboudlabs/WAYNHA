@@ -486,7 +486,8 @@ fun AdminDashboardScreen(
     onHideFlaggedReport: (reportId: String, flagId: String?, notes: String) -> Unit,
     onToggleSuspendUser: (userId: String, suspend: Boolean) -> Unit,
     onAddCategory: (id: String, nameAr: String, isSensitive: Boolean) -> Unit,
-    onOpenReportDetails: (String) -> Unit
+    onOpenReportDetails: (String) -> Unit,
+    onDismissFlag: (flagId: String) -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var adminSearchQuery by remember { mutableStateOf("") }
@@ -660,23 +661,25 @@ fun AdminDashboardScreen(
                                 if (flag.details.isNotBlank()) {
                                     Text("التفاصيل: ${flag.details}", style = MaterialTheme.typography.bodySmall)
                                 }
-                                if (flag.reportId != null && flag.status == "pending") {
+                                if (flag.status == "pending") {
                                     Spacer(modifier = Modifier.height(10.dp))
-                                    Button(
-                                        onClick = {
-                                            onHideFlaggedReport(
-                                                flag.reportId,
-                                                flag.id,
-                                                "تمت المراجعة وإخفاء المحتوى المخالف"
-                                            )
-                                        },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.error
-                                        ),
-                                        modifier = Modifier.testTag("admin_action_hide_flag_${flag.id}")
-                                    ) {
-                                        Text("إخفاء المحتوى المخالف وتوثيق الإجراء")
+                                    if (flag.reportId != null) {
+                                        Button(
+                                            onClick = {
+                                                onHideFlaggedReport(
+                                                    flag.reportId,
+                                                    flag.id,
+                                                    "تمت المراجعة وإخفاء المحتوى المخالف"
+                                                )
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                            modifier = Modifier.fillMaxWidth().testTag("admin_action_hide_flag_${flag.id}")
+                                        ) { Text("إخفاء المحتوى المخالف وتوثيق الإجراء") }
                                     }
+                                    OutlinedButton(
+                                        onClick = { onDismissFlag(flag.id) },
+                                        modifier = Modifier.fillMaxWidth().testTag("admin_action_dismiss_flag_${flag.id}")
+                                    ) { Text("إغلاق البلاغ بعد المراجعة دون إجراء") }
                                 }
                             }
                         }

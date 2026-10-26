@@ -321,12 +321,10 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onOpenConversations = { viewModel.navigateTo(WaynhaScreen.CONVERSATIONS) },
                                 onOpenNotifications = { viewModel.navigateTo(WaynhaScreen.NOTIFICATIONS) },
                                 onOpenAdminDashboard = { viewModel.openAdminDashboard() },
-                                onOpenSplashScreen = { viewModel.navigateTo(WaynhaScreen.SPLASH) },
-                                onOpenOnboardingScreen = { viewModel.navigateTo(WaynhaScreen.ONBOARDING) },
                                 onToggleDarkMode = { viewModel.toggleDarkMode() },
-                                onToggleOfflineSim = { viewModel.toggleOfflineSimulation(it) },
-                                onToggleUploadFailureSim = { viewModel.toggleImageUploadFailureSimulation(it) },
                                 onRequestDeletion = { viewModel.requestAccountDeletion() },
+                                onUpdateCredentials = { email, password -> viewModel.updateAccountCredentials(email, password) },
+                                onSaveAvatar = { uri, offsetX, offsetY -> viewModel.saveProfileAvatar(uri, offsetX, offsetY) },
                                 onLogout = { viewModel.logout() },
                                 onGoToLogin = { viewModel.navigateTo(WaynhaScreen.AUTH) }
                             )

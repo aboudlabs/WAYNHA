@@ -189,7 +189,7 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onAttachSampleImage = { label, blurred -> viewModel.attachSampleVerifiedPhoto(label, blurred) },
                                 onRemoveDraftImage = { viewModel.removeDraftImage(it) },
                                 onSubmitNew = { type, title, cat, desc, hood, date, marks, masked ->
-                                    viewModel.submitNewReport(type, title, cat, desc, hood, date, marks, masked)
+                                    viewModel.submitNewReport(type, title, cat, desc, hood, date, marks, masked, verificationQuestions)
                                 },
                                 onSubmitUpdate = { _, _, _, _, _, _ -> },
                                 onBack = { viewModel.navigateBack() }
@@ -205,7 +205,7 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onAttachSampleImage = { label, blurred -> viewModel.attachSampleVerifiedPhoto(label, blurred) },
                                 onRemoveDraftImage = { viewModel.removeDraftImage(it) },
                                 onSubmitNew = { type, title, cat, desc, hood, date, marks, masked ->
-                                    viewModel.submitNewReport(type, title, cat, desc, hood, date, marks, masked)
+                                    viewModel.submitNewReport(type, title, cat, desc, hood, date, marks, masked, verificationQuestions)
                                 },
                                 onSubmitUpdate = { _, _, _, _, _, _ -> },
                                 onBack = { viewModel.navigateBack() }

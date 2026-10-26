@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -344,7 +345,8 @@ fun ChatRoomScreen(
     onBack: () -> Unit,
     onSendMessage: (String) -> Unit,
     onBlockOtherUser: (String) -> Unit,
-    onFlagConversation: (String, String) -> Unit
+    onFlagConversation: (String, String) -> Unit,
+    onRefreshConversation: () -> Unit
 ) {
     val conv = uiState.conversations.firstOrNull { it.id == uiState.activeConversationId }
     var messageInput by remember { mutableStateOf("") }
@@ -404,6 +406,12 @@ fun ChatRoomScreen(
                     }
 
                     Row {
+                        IconButton(
+                            onClick = onRefreshConversation,
+                            modifier = Modifier.size(48.dp).testTag("chat_btn_refresh")
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = "تحديث الرسائل")
+                        }
                         IconButton(
                             onClick = {
                                 onFlagConversation(conv.id, "إبلاغ عن إساءة في المحادثة")

@@ -92,7 +92,8 @@ fun AddOrEditReportScreen(
         neighborhood: String,
         incidentDateText: String,
         distinguishingMarks: String,
-        isSensitiveMasked: Boolean
+        isSensitiveMasked: Boolean,
+        verificationQuestions: List<Pair<String, String>>
     ) -> Unit,
     onSubmitUpdate: (
         reportId: String,
@@ -126,6 +127,12 @@ fun AddOrEditReportScreen(
     var isSensitiveMasked by remember(editingReport?.id) {
         mutableStateOf(editingReport?.isSensitiveMasked ?: true)
     }
+    var verificationQuestion1 by remember(editingReport?.id) { mutableStateOf("") }
+    var verificationAnswer1 by remember(editingReport?.id) { mutableStateOf("") }
+    var verificationQuestion2 by remember(editingReport?.id) { mutableStateOf("") }
+    var verificationAnswer2 by remember(editingReport?.id) { mutableStateOf("") }
+    var verificationQuestion3 by remember(editingReport?.id) { mutableStateOf("") }
+    var verificationAnswer3 by remember(editingReport?.id) { mutableStateOf("") }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -314,6 +321,26 @@ fun AddOrEditReportScreen(
                 .testTag("form_input_marks")
         )
 
+        // أسئلة تحقق خاصة ببلاغات الموجود فقط؛ الإجابات لا تظهر في تفاصيل البلاغ.
+        if (!isEditing && effectiveType == ReportType.FOUND) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f))
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("أسئلة سرّية للتحقق من صاحب الغرض", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("أضف سؤالاً واحداً على الأقل. الأسئلة تظهر لمن يطلب استعادة الغرض، أما الإجابات فتبقى خاصة ولا تُعرض للعامة.", style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(value = verificationQuestion1, onValueChange = { verificationQuestion1 = it }, label = { Text("السؤال الأول (مطلوب)") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = verificationAnswer1, onValueChange = { verificationAnswer1 = it }, label = { Text("الإجابة السرّية الأولى") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = verificationQuestion2, onValueChange = { verificationQuestion2 = it }, label = { Text("السؤال الثاني (اختياري)") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = verificationAnswer2, onValueChange = { verificationAnswer2 = it }, label = { Text("الإجابة السرّية الثانية") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                    OutlinedTextField(value = verificationQuestion3, onValueChange = { verificationQuestion3 = it }, label = { Text("السؤال الثالث (اختياري)") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = verificationAnswer3, onValueChange = { verificationAnswer3 = it }, label = { Text("الإجابة السرّية الثالثة") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                }
+            }
+        }
+
         // 8. الصور المرفقة
         if (!isEditing) {
             Card(
@@ -422,7 +449,12 @@ fun AddOrEditReportScreen(
                         selectedNeighborhood,
                         incidentDateText,
                         distinguishingMarks,
-                        isSensitiveMasked
+                        isSensitiveMasked,
+                        listOf(
+                            verificationQuestion1 to verificationAnswer1,
+                            verificationQuestion2 to verificationAnswer2,
+                            verificationQuestion3 to verificationAnswer3
+                        ).filter { it.first.isNotBlank() && it.second.isNotBlank() }
                     )
                 }
             },

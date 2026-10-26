@@ -864,10 +864,18 @@ class WaynhaRepository(
             if (remoteConversation.isFailure) {
                 return Result.failure(remoteConversation.exceptionOrNull() ?: IOException("تعذر بدء المحادثة الآمنة."))
             }
-            val conv = remoteConversation.getOrThrow()
+            val remoteConv = remoteConversation.getOrThrow()
+            val loadedMessages = remoteClient.fetchMessages(remoteConv.id, token).getOrDefault(emptyList())
+            messagesByConversation[remoteConv.id] = loadedMessages.toMutableList()
+            val conv = remoteConv.copy(
+                reportTitle = targetReport.title,
+                reportType = targetReport.reportType,
+                initiatorName = if (remoteConv.initiatorId == user.id) user.fullName else targetReport.userName,
+                recipientName = if (remoteConv.recipientId == user.id) user.fullName else targetReport.userName,
+                lastMessagePreview = loadedMessages.lastOrNull()?.body.orEmpty()
+            )
             conversations.removeAll { it.id == conv.id }
             conversations.add(0, conv)
-            remoteClient.fetchMessages(conv.id, token).onSuccess { msgs -> messagesByConversation[conv.id] = msgs.toMutableList() }
             persistState()
             return Result.success(conv)
         }

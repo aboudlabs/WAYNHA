@@ -554,7 +554,7 @@ class WaynhaRepository(
                 accessToken = accessToken!!
             )
             if (uploadRes.isFailure) {
-                return Result.failure(uploadRes.exceptionOrNull() ?: IOException("فشل رفع الصورة"))
+                return Result.failure(IOException("ما قدرنا نرفع الصورة. تحقق من اتصال الإنترنت وحاول مرة ثانية."))
             }
             val publicUrl = uploadRes.getOrThrow()
             return Result.success(

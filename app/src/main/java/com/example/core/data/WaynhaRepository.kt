@@ -492,7 +492,10 @@ class WaynhaRepository(
             if (result.isFailure) return Result.failure(result.exceptionOrNull() ?: IOException("تعذر تحديث بيانات الدخول."))
         } else {
             if (changedEmail != null && profiles.values.any { it.id != user.id && it.email.equals(changedEmail, true) }) return Result.failure(IllegalArgumentException("هذا البريد الإلكتروني مستخدم في حساب آخر."))
-            if (newPassword.isNotBlank()) accountPasswords[user.email.lowercase()] = newPassword
+            val existingPassword = accountPasswords.remove(user.email.lowercase())
+            val targetEmail = changedEmail ?: user.email
+            if (existingPassword != null) accountPasswords[targetEmail.lowercase()] = existingPassword
+            if (newPassword.isNotBlank()) accountPasswords[targetEmail.lowercase()] = newPassword
         }
         val updated = user.copy(email = changedEmail ?: user.email)
         profiles[user.id] = updated

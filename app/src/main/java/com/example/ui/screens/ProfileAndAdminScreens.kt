@@ -73,6 +73,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.core.model.ReportStatus
 import com.example.ui.viewmodel.WaynhaUiState
@@ -124,6 +125,11 @@ fun ProfileAndSettingsScreen(
             ) {
                 Text("تسجيل الدخول أو إنشاء حساب")
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = { LocalUriHandler.current.openUri("https://aboudweb.onrender.com") },
+                modifier = Modifier.fillMaxWidth().testTag("profile_btn_developer_website_guest")
+            ) { Text("عن المطوّر • ABODLABS") }
         }
         return
     }
@@ -400,7 +406,7 @@ fun ProfileAndSettingsScreen(
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("أمان الحساب وبيانات الدخول", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("البريد الإلكتروني") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("profile_input_email"))
-                OutlinedTextField(value = newPassword, onValueChange = { newPassword = it }, label = { Text("كلمة المرور الجديدة (اختياري)") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("profile_input_new_password"))
+                OutlinedTextField(value = newPassword, onValueChange = { newPassword = it }, label = { Text("كلمة المرور الجديدة (اختياري)") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth().testTag("profile_input_new_password"))
                 Text("اترك كلمة المرور فارغة إذا كنت تريد تغيير البريد فقط.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(onClick = {
                     onUpdateCredentials(email.takeIf { it.isNotBlank() && !it.equals(user.email, ignoreCase = true) }.orEmpty(), newPassword)

@@ -870,8 +870,8 @@ class WaynhaRepository(
             val conv = remoteConv.copy(
                 reportTitle = targetReport.title,
                 reportType = targetReport.reportType,
-                initiatorName = if (remoteConv.initiatorId == user.id) user.fullName else targetReport.userName,
-                recipientName = if (remoteConv.recipientId == user.id) user.fullName else targetReport.userName,
+                initiatorName = if (remoteConv.initiatorId == user.id) user.fullName else remoteConv.initiatorName,
+                recipientName = if (remoteConv.recipientId == user.id) user.fullName else remoteConv.recipientName,
                 lastMessagePreview = loadedMessages.lastOrNull()?.body.orEmpty()
             )
             conversations.removeAll { it.id == conv.id }

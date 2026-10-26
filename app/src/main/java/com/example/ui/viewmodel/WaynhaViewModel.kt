@@ -639,6 +639,21 @@ class WaynhaViewModel(
         }
     }
 
+    fun refreshActiveConversation() {
+        val conversationId = _uiState.value.activeConversationId ?: return
+        if (!repository.isLiveSupabaseConnected) {
+            refreshAllState()
+            return
+        }
+        viewModelScope.launch {
+            repository.refreshLiveMessages(conversationId).onSuccess { messages ->
+                _uiState.update { state ->
+                    if (state.activeConversationId == conversationId) state.copy(activeConversationMessages = messages) else state
+                }
+            }.onFailure { showBanner(it.message ?: "تعذر تحديث الرسائل.", true) }
+        }
+    }
+
     fun sendChatMessage(body: String) {
         val convId = _uiState.value.activeConversationId ?: return
         if (_uiState.value.isSubmitting) return

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="360dp"
+    android:height="180dp"
+    android:viewportWidth="360"
+    android:viewportHeight="180">
+    <!-- Background Gradient -->
+    <path android:pathData="M0,0h360v180h-360z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="360"
+                android:endY="180"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#0A4D46" />
+                <item android:offset="0.6" android:color="#0F766E" />
+                <item android:offset="1.0" android:color="#115E59" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Decorative Soft Circles -->
+    <path
+        android:fillColor="#18FFFFFF"
+        android:pathData="M310,35m-65,0a65,65 0 1,1 130,0a65,65 0 1,1 -130,0" />
+    <path
+        android:fillColor="#12FFFFFF"
+        android:pathData="M60,150m-80,0a80,80 0 1,1 160,0a80,80 0 1,1 -160,0" />
+    <!-- Stylized Homs New Clock Tower Silhouette (الساعة الجديدة في حمص) -->
+    <path
+        android:fillColor="#29FFFFFF"
+        android:pathData="M56,52L68,40L80,52L80,180L56,180Z" />
+    <path
+        android:fillColor="#40FFFFFF"
+        android:pathData="M60,56h16v124h-16z" />
+    <!-- Clock Face -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M68,68m-6,0a6,6 0 1,1 12,0a6,6 0 1,1 -12,0" />
+    <!-- Archways of Homs -->
+    <path
+        android:fillColor="#22FFFFFF"
+        android:pathData="M95,120C95,105 115,105 115,120L115,180L95,180Z" />
+    <path
+        android:fillColor="#22FFFFFF"
+        android:pathData="M122,120C122,105 142,105 142,120L142,180L122,180Z" />
+    <!-- Glowing Location Pin Badge -->
+    <path
+        android:fillColor="#33F59E0B"
+        android:pathData="M295,88m-30,0a30,30 0 1,1 60,0a30,30 0 1,1 -60,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M295,62C285.6,62 278,69.6 278,79C278,90.5 295,106 295,106C295,106 312,90.5 312,79C312,69.6 304.4,62 295,62ZM295,85C291.7,85 289,82.3 289,79C289,75.7 291.7,73 295,73C298.3,73 301,75.7 301,79C301,82.3 298.3,85 295,85Z" />
+</vector>

@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">WAYNHA</string>
+    <string name="app_name_ar">وينها؟</string>
+    <string name="app_slogan">ضاع منك شي؟ خلّينا نلاقيه.</string>
+    <string name="city_homs">حمص</string>
+    <string name="country_syria">سوريا</string>
+    <string name="homs_scope_badge">مخصص لمدينة حمص فقط</string>
+    <string name="search_placeholder">شو عم تدور عليه؟</string>
+    <string name="btn_lost_item">أضعت غرضاً</string>
+    <string name="btn_found_item">وجدت غرضاً</string>
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_search">البحث</string>
+    <string name="nav_add_report">إضافة بلاغ</string>
+    <string name="nav_saved">المحفوظات</string>
+    <string name="nav_profile">حسابي</string>
+    <string name="match_suggestion_banner">قد يكون هذا الغرض هو ما تبحث عنه</string>
+    <string name="match_probabilistic_disclaimer">المطابقة اقتراح احتمالي بناءً على التشابه وليست تأكيداً للملكية.</string>
+    <string name="btn_might_be_mine">قد يكون هذا غرضي</string>
+</resources>

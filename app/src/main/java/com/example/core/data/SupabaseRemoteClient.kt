@@ -343,6 +343,93 @@ class SupabaseRemoteClient(
         }
     }
 
+
+    suspend fun setVerificationQuestions(
+        reportId: String,
+        questions: List<Pair<String, String>>,
+        accessToken: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val items = JSONArray()
+            questions.take(3).forEach { (question, answer) ->
+                items.put(JSONObject().put("question", question.trim()).put("answer", answer.trim()))
+            }
+            val payload = JSONObject().put("p_report_id", reportId).put("p_questions", items)
+            val request = Request.Builder().url("$baseUrl/rest/v1/rpc/set_report_verification_questions")
+                .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json")
+                .post(payload.toString().toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, "تعذر حفظ أسئلة التحقق.")))
+                else Result.success(Unit)
+            }
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    suspend fun fetchVerificationQuestions(reportId: String, accessToken: String): Result<List<Pair<String, String>>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val encodedId = java.net.URLEncoder.encode(reportId, "UTF-8")
+                val request = Request.Builder().url("$baseUrl/rest/v1/report_verification_questions?report_id=eq.$encodedId&select=id,question_text,position&order=position.asc")
+                    .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken").get().build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر تحميل أسئلة التحقق.")))
+                    val arr = JSONArray(body)
+                    Result.success((0 until arr.length()).map { i ->
+                        val item = arr.getJSONObject(i)
+                        item.getString("id") to item.getString("question_text")
+                    })
+                }
+            } catch (e: Exception) { Result.failure(e) }
+        }
+
+    suspend fun submitRecoveryRequest(
+        reportId: String,
+        answers: List<Pair<String, String>>,
+        message: String,
+        accessToken: String
+    ): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val answerArray = JSONArray()
+            answers.forEach { (questionId, answer) ->
+                answerArray.put(JSONObject().put("question_id", questionId).put("answer", answer.trim()))
+            }
+            val payload = JSONObject().put("p_report_id", reportId).put("p_answers", answerArray).put("p_message", message.trim())
+            val request = Request.Builder().url("$baseUrl/rest/v1/rpc/submit_recovery_request")
+                .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json")
+                .post(payload.toString().toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, "تعذر إرسال طلب الاستعادة.")))
+                else Result.success(JSONObject(body).optString("request_id"))
+            }
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    suspend fun reviewRecoveryRequest(requestId: String, accept: Boolean, accessToken: String): Result<Unit> =
+        callRecoveryRpc("review_recovery_request", JSONObject().put("p_request_id", requestId).put("p_accept", accept), accessToken)
+
+    suspend fun confirmRecoveryHandover(requestId: String, notes: String, accessToken: String): Result<Unit> =
+        callRecoveryRpc("confirm_recovery_handover", JSONObject().put("p_request_id", requestId).put("p_notes", notes), accessToken)
+
+    private suspend fun callRecoveryRpc(name: String, payload: JSONObject, accessToken: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder().url("$baseUrl/rest/v1/rpc/$name")
+                    .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Content-Type", "application/json")
+                    .post(payload.toString().toRequestBody(jsonMediaType)).build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, "تعذر تحديث طلب الاستعادة.")))
+                    else Result.success(Unit)
+                }
+            } catch (e: Exception) { Result.failure(e) }
+        }
+
     private fun parseSupabaseError(rawBody: String, fallback: String): String {
         return try {
             val json = JSONObject(rawBody)

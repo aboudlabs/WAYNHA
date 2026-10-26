@@ -402,19 +402,69 @@ class WaynhaViewModel(
     ) {
         if (_uiState.value.isSubmitting) return
         _uiState.update { it.copy(isSubmitting = true) }
-        val res = repository.updateProfile(
-            fullName = fullName,
-            neighborhood = neighborhood,
-            avatarUrl = _uiState.value.currentUser?.avatarUrl,
-            privacyHideLastSeen = privacyHideLastSeen,
-            allowMatchNotifications = allowMatchNotifications
-        )
-        _uiState.update { it.copy(isSubmitting = false) }
-        res.onSuccess {
-            refreshAllState()
-            showBanner("تم حفظ تعديلات الملف الشخصي بنجاح.", isError = false)
-        }.onFailure { err ->
-            showBanner(err.message ?: "فشل تحديث الملف الشخصي.", isError = true)
+        viewModelScope.launch {
+            val res = repository.updateProfile(
+                fullName = fullName,
+                neighborhood = neighborhood,
+                avatarUrl = _uiState.value.currentUser?.avatarUrl,
+                privacyHideLastSeen = privacyHideLastSeen,
+                allowMatchNotifications = allowMatchNotifications
+            )
+            _uiState.update { it.copy(isSubmitting = false) }
+            res.onSuccess {
+                refreshAllState()
+                showBanner("تم حفظ تعديلات الملف الشخصي بنجاح.", isError = false)
+            }.onFailure { err -> showBanner(err.message ?: "تعذر تحديث الملف الشخصي.", isError = true) }
+        }
+    }
+
+
+    fun updateAccountCredentials(newEmail: String, newPassword: String) {
+        if (_uiState.value.isSubmitting) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, isLoading = true) }
+            val result = repository.updateAccountCredentials(newEmail, newPassword)
+            _uiState.update { it.copy(isSubmitting = false, isLoading = false) }
+            result.onSuccess {
+                refreshAllState()
+                showBanner(
+                    if (newEmail.isNotBlank() && newPassword.isNotBlank()) "تم تحديث بيانات الدخول. إذا طُلب تأكيد البريد، راجع الرسالة التي وصلت إلى بريدك الجديد."
+                    else if (newPassword.isNotBlank()) "تم تغيير كلمة المرور بنجاح."
+                    else "تم إرسال طلب تغيير البريد. راجع بريدك الجديد لتأكيد التغيير إذا طُلب منك ذلك.",
+                    isError = false
+                )
+            }.onFailure { err -> showBanner(err.message ?: "تعذر تحديث بيانات الدخول.", isError = true) }
+        }
+    }
+
+    fun saveProfileAvatar(uri: Uri, offsetX: Float, offsetY: Float) {
+        if (_uiState.value.isSubmitting) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true, isLoading = true) }
+            val bitmap = try {
+                getApplication<Application>().contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it) }
+            } catch (_: Exception) { null }
+            val bytes = try {
+                if (bitmap == null) null else {
+                    val side = (minOf(bitmap.width, bitmap.height) * 0.8f).toInt().coerceAtLeast(1)
+                    val extraX = (bitmap.width - side).coerceAtLeast(0)
+                    val extraY = (bitmap.height - side).coerceAtLeast(0)
+                    val left = ((bitmap.width - side) / 2f - offsetX.coerceIn(-1f, 1f) * extraX / 2f).toInt().coerceIn(0, extraX)
+                    val top = ((bitmap.height - side) / 2f - offsetY.coerceIn(-1f, 1f) * extraY / 2f).toInt().coerceIn(0, extraY)
+                    val crop = android.graphics.Bitmap.createBitmap(bitmap, left, top, side, side)
+                    val output = java.io.ByteArrayOutputStream()
+                    crop.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, output)
+                    if (crop !== bitmap) crop.recycle()
+                    bitmap.recycle()
+                    output.toByteArray()
+                }
+            } catch (_: Exception) { null }
+            val result = if (bytes == null) Result.failure(IllegalArgumentException("تعذر تجهيز الصورة. اختر صورة أخرى وحاول مجدداً.")) else repository.saveProfileAvatar(bytes)
+            _uiState.update { it.copy(isSubmitting = false, isLoading = false) }
+            result.onSuccess {
+                refreshAllState()
+                showBanner("تم تحديث الصورة الشخصية بنجاح.", isError = false)
+            }.onFailure { err -> showBanner(err.message ?: "تعذر تحديث الصورة الشخصية.", isError = true) }
         }
     }
 

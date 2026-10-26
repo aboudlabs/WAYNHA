@@ -14,6 +14,7 @@ import com.example.core.model.ItemReport
 import com.example.core.model.MatchReviewStatus
 import com.example.core.model.NotificationType
 import com.example.core.model.RecoveryConfirmation
+import com.example.core.model.RecoveryRequest
 import com.example.core.model.ReportCategory
 import com.example.core.model.ReportFlag
 import com.example.core.model.ReportImage
@@ -67,6 +68,7 @@ class WaynhaRepository(
     private val reportFlags = mutableListOf<ReportFlag>()
     private val blockedUsersByBlocker = mutableMapOf<String, MutableSet<String>>()
     private val recoveryConfirmations = mutableListOf<RecoveryConfirmation>()
+    private val recoveryRequests = mutableListOf<RecoveryRequest>()
     private val verificationAnswersByReport = mutableMapOf<String, List<Pair<String, String>>>()
     private val adminAuditLogs = mutableListOf<AdminAuditLog>()
     private val categories = InitialCategories.all.toMutableList()
@@ -159,6 +161,101 @@ class WaynhaRepository(
 
     fun getRecoveryConfirmationsForReport(reportId: String): List<RecoveryConfirmation> {
         return recoveryConfirmations.filter { it.reportId == reportId }
+    }
+
+    suspend fun getVerificationQuestions(reportId: String): Result<List<Pair<String, String>>> {
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            return remoteClient.fetchVerificationQuestions(reportId, token)
+        }
+        val saved = verificationAnswersByReport[reportId].orEmpty()
+        return Result.success(saved.mapIndexed { index, pair -> "local-$index" to pair.first })
+    }
+
+    suspend fun getRecoveryRequestsForReport(reportId: String): Result<List<RecoveryRequest>> {
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            return remoteClient.fetchRecoveryRequests(reportId, token)
+        }
+        return Result.success(recoveryRequests.filter { it.reportId == reportId })
+    }
+
+    suspend fun submitRecoveryRequest(
+        reportId: String,
+        answers: List<Pair<String, String>>,
+        message: String
+    ): Result<Unit> {
+        val user = currentUser ?: return Result.failure(SecurityException("يرجى تسجيل الدخول أولاً."))
+        val report = getReportById(reportId) ?: return Result.failure(IllegalArgumentException("البلاغ غير موجود."))
+        if (report.reportType != ReportType.FOUND || report.userId == user.id) {
+            return Result.failure(IllegalArgumentException("يمكنك طلب استعادة غرض من بلاغ موجود لشخص آخر فقط."))
+        }
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            return remoteClient.submitRecoveryRequest(reportId, answers, message, token).map { Unit }
+        }
+        val expected = verificationAnswersByReport[reportId].orEmpty()
+        if (expected.isEmpty()) return Result.failure(IllegalStateException("لا توجد أسئلة تحقق لهذا البلاغ."))
+        val correct = expected.indices.all { i ->
+            val expectedAnswer = expected[i].second.trim().lowercase()
+            val supplied = answers.firstOrNull { it.first == "local-$i" }?.second?.trim()?.lowercase().orEmpty()
+            supplied == expectedAnswer
+        }
+        if (!correct) return Result.failure(SecurityException("إجابات التحقق غير صحيحة."))
+        val request = RecoveryRequest(
+            id = "recovery-${UUID.randomUUID()}",
+            reportId = reportId,
+            claimantId = user.id,
+            finderId = report.userId,
+            message = message.trim(),
+            createdAtText = nowFormatted()
+        )
+        recoveryRequests.removeAll { it.reportId == reportId && it.claimantId == user.id }
+        recoveryRequests.add(0, request)
+        persistState()
+        return Result.success(Unit)
+    }
+
+    suspend fun reviewRecoveryRequest(requestId: String, accept: Boolean): Result<Unit> {
+        val token = accessToken?.takeIf { it.isNotBlank() }
+        if (isLiveSupabaseConnected) {
+            if (token == null) return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            return remoteClient.reviewRecoveryRequest(requestId, accept, token)
+        }
+        val user = currentUser ?: return Result.failure(SecurityException("يرجى تسجيل الدخول أولاً."))
+        val idx = recoveryRequests.indexOfFirst { it.id == requestId && it.finderId == user.id && it.status == "pending" }
+        if (idx < 0) return Result.failure(SecurityException("هذا الطلب غير متاح للمراجعة."))
+        recoveryRequests[idx] = recoveryRequests[idx].copy(status = if (accept) "accepted" else "rejected")
+        persistState()
+        return Result.success(Unit)
+    }
+
+    suspend fun confirmRecoveryHandover(requestId: String, notes: String): Result<Unit> {
+        val token = accessToken?.takeIf { it.isNotBlank() }
+        if (isLiveSupabaseConnected) {
+            if (token == null) return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            return remoteClient.confirmRecoveryHandover(requestId, notes, token)
+        }
+        val user = currentUser ?: return Result.failure(SecurityException("يرجى تسجيل الدخول أولاً."))
+        val idx = recoveryRequests.indexOfFirst { it.id == requestId && it.status == "accepted" &&
+            (it.claimantId == user.id || it.finderId == user.id) }
+        if (idx < 0) return Result.failure(SecurityException("طلب الاستعادة غير متاح للتأكيد."))
+        val old = recoveryRequests[idx]
+        val updated = old.copy(
+            ownerConfirmed = old.ownerConfirmed || old.claimantId == user.id,
+            finderConfirmed = old.finderConfirmed || old.finderId == user.id,
+            handoverNotes = notes.trim().ifBlank { old.handoverNotes }
+        )
+        val both = updated.ownerConfirmed && updated.finderConfirmed
+        recoveryRequests[idx] = updated.copy(status = if (both) "confirmed" else "accepted")
+        if (both) {
+            reports.replaceAll { if (it.id == old.reportId) it.copy(status = ReportStatus.RECOVERED) else it }
+        }
+        persistState()
+        return Result.success(Unit)
     }
 
     fun getAllProfilesForAdmin(requester: UserProfile?): Result<List<UserProfile>> {

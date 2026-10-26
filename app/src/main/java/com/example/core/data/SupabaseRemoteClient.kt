@@ -62,7 +62,7 @@ class SupabaseRemoteClient(
         fullName: String
     ): Result<SupabaseAuthSession> = withContext(Dispatchers.IO) {
         if (!isConfigured) {
-            return@withContext Result.failure(IllegalStateException("لم يتم إعداد مفاتيح Supabase بعد."))
+            return@withContext Result.failure(IllegalStateException("الخدمة غير جاهزة حالياً. يرجى المحاولة لاحقاً."))
         }
         try {
             val payload = JSONObject().apply {
@@ -83,14 +83,14 @@ class SupabaseRemoteClient(
             httpClient.newCall(request).execute().use { response ->
                 val bodyStr = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(IOException(parseSupabaseError(bodyStr, "فشل إنشاء الحساب في Supabase")))
+                    return@withContext Result.failure(IOException(parseSupabaseError(bodyStr, "تعذر إنشاء الحساب.")))
                 }
                 val json = JSONObject(bodyStr)
                 val accessToken = json.optString("access_token", "")
                 val userObj = json.optJSONObject("user") ?: json
                 val userId = userObj.optString("id", "")
                 if (userId.isBlank()) {
-                    return@withContext Result.failure(IOException("تم إرسال طلب التسجيل. يرجى تأكيد البريد الإلكتروني إذا كان التفعيل مفعلاً في مشروع Supabase."))
+                    return@withContext Result.failure(IOException("تم إرسال طلب التسجيل. افتح رسالة التأكيد التي وصلتك إلى بريدك الإلكتروني ثم سجّل الدخول."))
                 }
                 Result.success(
                     SupabaseAuthSession(
@@ -111,7 +111,7 @@ class SupabaseRemoteClient(
         password: String
     ): Result<SupabaseAuthSession> = withContext(Dispatchers.IO) {
         if (!isConfigured) {
-            return@withContext Result.failure(IllegalStateException("لم يتم إعداد مفاتيح Supabase بعد."))
+            return@withContext Result.failure(IllegalStateException("الخدمة غير جاهزة حالياً. يرجى المحاولة لاحقاً."))
         }
         try {
             val payload = JSONObject().apply {
@@ -204,7 +204,7 @@ class SupabaseRemoteClient(
             httpClient.newCall(request).execute().use { response ->
                 val bodyStr = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(IOException(parseSupabaseError(bodyStr, "فشل جلب البلاغات من Supabase")))
+                    return@withContext Result.failure(IOException(parseSupabaseError(bodyStr, "تعذر تحميل البلاغات.")))
                 }
                 val arr = JSONArray(bodyStr)
                 val privateMarks = if (accessToken.isNullOrBlank()) emptyMap() else fetchMyPrivateMarks(accessToken)
@@ -301,6 +301,49 @@ class SupabaseRemoteClient(
         }
     }
 
+
+    suspend fun updateProfileInSupabase(user: UserProfile, accessToken: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().apply {
+                put("full_name", user.fullName)
+                put("neighborhood", user.neighborhood ?: JSONObject.NULL)
+                put("avatar_url", user.avatarUrl ?: JSONObject.NULL)
+                put("privacy_hide_last_seen", user.privacyHideLastSeen)
+                put("allow_match_notifications", user.allowMatchNotifications)
+            }
+            val request = Request.Builder().url("$baseUrl/rest/v1/profiles?id=eq.${user.id}")
+                .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json").addHeader("Prefer", "return=minimal")
+                .patch(payload.toString().toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, "تعذر حفظ تعديلات الملف الشخصي.")))
+                else Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Result.failure(IOException("تعذر حفظ تعديلات الملف الشخصي. تحقق من اتصال الإنترنت وحاول مجدداً.", e))
+        }
+    }
+
+    suspend fun updateAuthCredentials(accessToken: String, email: String?, newPassword: String?): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject()
+            if (!email.isNullOrBlank()) payload.put("email", email.trim())
+            if (!newPassword.isNullOrBlank()) payload.put("password", newPassword)
+            val request = Request.Builder().url("$baseUrl/auth/v1/user")
+                .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json")
+                .put(payload.toString().toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, "تعذر تحديث بيانات الدخول.")))
+                else Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Result.failure(IOException("تعذر تحديث بيانات الدخول. تحقق من اتصال الإنترنت وحاول مجدداً.", e))
+        }
+    }
+
     suspend fun uploadImageToSupabaseStorage(
         userId: String,
         fileName: String,
@@ -320,7 +363,7 @@ class SupabaseRemoteClient(
             httpClient.newCall(request).execute().use { response ->
                 val bodyStr = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(IOException(parseSupabaseError(bodyStr, "فشل رفع الصورة إلى Supabase Storage")))
+                    return@withContext Result.failure(IOException(parseSupabaseError(bodyStr, "تعذر رفع الصورة. تحقق من اتصال الإنترنت وحاول مرة أخرى.")))
                 }
                 val publicUrl = "$baseUrl/storage/v1/object/public/report-images/$storagePath"
                 Result.success(publicUrl)

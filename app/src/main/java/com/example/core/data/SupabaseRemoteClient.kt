@@ -6,6 +6,7 @@ import com.example.core.model.Conversation
 import com.example.core.model.ItemReport
 import com.example.core.model.ReportImage
 import com.example.core.model.RecoveryRequest
+import com.example.core.model.ReportFlag
 import com.example.core.model.ReportStatus
 import com.example.core.model.ReportType
 import com.example.core.model.SystemLocationSettings
@@ -410,6 +411,62 @@ class SupabaseRemoteClient(
         } catch (e: Exception) { Result.failure(e) }
     }
 
+
+
+    suspend fun submitReportFlag(
+        reporterId: String,
+        reportId: String?,
+        conversationId: String?,
+        reason: String,
+        details: String,
+        accessToken: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().put("reporter_id", reporterId)
+                .put("reason", reason.trim()).put("details", details.trim())
+            if (reportId != null) payload.put("report_id", reportId)
+            if (conversationId != null) payload.put("conversation_id", conversationId)
+            val request = Request.Builder().url("$baseUrl/rest/v1/reports_flags")
+                .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json").addHeader("Prefer", "return=minimal")
+                .post(payload.toString().toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, "تعذر إرسال البلاغ للمراجعة.")))
+                else Result.success(Unit)
+            }
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    suspend fun fetchReportFlags(accessToken: String): Result<List<ReportFlag>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder().url("$baseUrl/rest/v1/reports_flags?select=*&order=created_at.desc")
+                    .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken").get().build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر تحميل البلاغات للمراجعة.")))
+                    val arr = JSONArray(body)
+                    Result.success((0 until arr.length()).map { i ->
+                        val o = arr.getJSONObject(i)
+                        val reportId = o.optString("report_id").takeIf { it.isNotBlank() && it != "null" }
+                        val convId = o.optString("conversation_id").takeIf { it.isNotBlank() && it != "null" }
+                        ReportFlag(
+                            id = o.optString("id"),
+                            reportId = reportId,
+                            reportTitle = reportId ?: "محادثة مستخدم",
+                            conversationId = convId,
+                            reporterId = o.optString("reporter_id"),
+                            reporterName = "مستخدم",
+                            reason = o.optString("reason"),
+                            details = o.optString("details"),
+                            status = o.optString("status", "pending"),
+                            createdAtText = o.optString("created_at")
+                        )
+                    })
+                }
+            } catch (e: Exception) { Result.failure(e) }
+        }
 
     suspend fun fetchRecoveryRequests(reportId: String, accessToken: String): Result<List<RecoveryRequest>> =
         withContext(Dispatchers.IO) {

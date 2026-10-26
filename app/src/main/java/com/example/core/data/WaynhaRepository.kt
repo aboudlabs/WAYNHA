@@ -595,6 +595,10 @@ class WaynhaRepository(
                 return Result.failure(remoteRes.exceptionOrNull() ?: IOException("فشل حفظ البلاغ في Supabase"))
             }
             val savedRemote = remoteRes.getOrThrow()
+            val privateDetailsRes = remoteClient.setReportPrivateDetails(savedRemote.id, distinguishingMarks, token)
+            if (privateDetailsRes.isFailure) {
+                return Result.failure(IOException("تم نشر البلاغ، لكن تعذر حفظ العلامات الخاصة. راجع البلاغ قبل الاعتماد عليه للتحقق من الملكية."))
+            }
             if (reportType == ReportType.FOUND) {
                 val questionsRes = remoteClient.setVerificationQuestions(savedRemote.id, verificationQuestions, token)
                 if (questionsRes.isFailure) {

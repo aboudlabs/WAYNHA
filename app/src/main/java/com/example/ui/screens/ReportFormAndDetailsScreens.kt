@@ -496,7 +496,10 @@ fun ReportDetailsScreen(
     onDeleteReport: (String) -> Unit,
     onStartSafeConversation: (targetReportId: String, matchedReportId: String?) -> Unit,
     onOpenCounterpartReport: (String) -> Unit,
-    onSubmitAbuseFlag: (reportId: String, reason: String, details: String) -> Unit
+    onSubmitAbuseFlag: (reportId: String, reason: String, details: String) -> Unit,
+    onSubmitRecoveryRequest: (reportId: String, answers: List<Pair<String, String>>, message: String) -> Unit,
+    onReviewRecoveryRequest: (reportId: String, requestId: String, accept: Boolean) -> Unit,
+    onConfirmHandover: (reportId: String, requestId: String, notes: String) -> Unit
 ) {
     if (report == null) {
         Column(
@@ -524,6 +527,55 @@ fun ReportDetailsScreen(
 
     var showRecoveryDialog by remember { mutableStateOf(false) }
     var recoveryNotes by remember { mutableStateOf("تم التحقق من العلامات المميزة واستلام الغرض في حمص.") }
+    var showRecoveryRequestDialog by remember(report.id) { mutableStateOf(false) }
+    var recoveryAnswer1 by remember(report.id) { mutableStateOf("") }
+    var recoveryAnswer2 by remember(report.id) { mutableStateOf("") }
+    var recoveryAnswer3 by remember(report.id) { mutableStateOf("") }
+    var recoveryRequestMessage by remember(report.id) { mutableStateOf("") }
+
+    if (showRecoveryRequestDialog) {
+        AlertDialog(
+            onDismissRequest = { showRecoveryRequestDialog = false },
+            title = { Text("طلب استعادة الغرض") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("أجب عن التفاصيل السرّية التي وضعها ناشر البلاغ. لا ترسل معلومات شخصية حساسة.")
+                    uiState.verificationQuestions.take(3).forEachIndexed { index, pair ->
+                        Text(pair.second, fontWeight = FontWeight.SemiBold)
+                        OutlinedTextField(
+                            value = when (index) { 0 -> recoveryAnswer1; 1 -> recoveryAnswer2; else -> recoveryAnswer3 },
+                            onValueChange = { value ->
+                                when (index) { 0 -> recoveryAnswer1 = value; 1 -> recoveryAnswer2 = value; else -> recoveryAnswer3 = value }
+                            },
+                            label = { Text("الإجابة") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    OutlinedTextField(
+                        value = recoveryRequestMessage,
+                        onValueChange = { recoveryRequestMessage = it },
+                        label = { Text("رسالة إضافية (اختياري)") },
+                        minLines = 2,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = uiState.verificationQuestions.isNotEmpty() && !uiState.isSubmitting,
+                    onClick = {
+                        val answers = uiState.verificationQuestions.take(3).mapIndexed { index, pair ->
+                            pair.first to when (index) { 0 -> recoveryAnswer1; 1 -> recoveryAnswer2; else -> recoveryAnswer3 }
+                        }
+                        onSubmitRecoveryRequest(report.id, answers, recoveryRequestMessage)
+                        showRecoveryRequestDialog = false
+                    }
+                ) { Text("إرسال طلب الاستعادة") }
+            },
+            dismissButton = { TextButton(onClick = { showRecoveryRequestDialog = false }) { Text("إلغاء") } }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -732,6 +784,63 @@ fun ReportDetailsScreen(
                         Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("قد يكون هذا غرضي • بدء تواصل آمن")
+                    }
+                }
+            }
+        }
+
+        // طلبات استعادة الغرض والتحقق من التسليم من الطرفين.
+        if (report.reportType == ReportType.FOUND && currentUser != null) {
+            val relevantRequests = uiState.recoveryRequests.filter {
+                it.finderId == currentUser.id || it.claimantId == currentUser.id
+            }
+            if (currentUser.id != report.userId && report.status.isEligibleForMatching) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("تعتقد أن هذا الغرض لك؟", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (uiState.verificationQuestions.isEmpty())
+                                "لم يضف ناشر البلاغ أسئلة تحقق بعد. يمكنك بدء محادثة آمنة، لكن لا تعتبر الملكية مؤكدة."
+                            else "لن يُرسل الطلب إلا بعد مطابقة إجابات التحقق السرّية.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(
+                            onClick = { showRecoveryRequestDialog = true },
+                            enabled = uiState.verificationQuestions.isNotEmpty() && !uiState.isSubmitting,
+                            modifier = Modifier.fillMaxWidth().testTag("details_btn_request_recovery")
+                        ) { Text("طلب استعادة الغرض") }
+                    }
+                }
+            }
+            relevantRequests.forEach { request ->
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("طلب استعادة الغرض", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("الحالة: " + when (request.status) {
+                            "pending" -> "بانتظار مراجعة ناشر البلاغ"
+                            "accepted" -> "تم قبول الطلب — بانتظار تأكيد الطرفين"
+                            "rejected" -> "مرفوض"
+                            "confirmed" -> "اكتملت الاستعادة بتأكيد الطرفين"
+                            else -> request.status
+                        })
+                        if (request.message.isNotBlank()) Text("رسالة صاحب الطلب: ${request.message}")
+                        if (request.finderId == currentUser.id && request.status == "pending") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { onReviewRecoveryRequest(report.id, request.id, true) }, modifier = Modifier.weight(1f)) { Text("قبول") }
+                                OutlinedButton(onClick = { onReviewRecoveryRequest(report.id, request.id, false) }, modifier = Modifier.weight(1f)) { Text("رفض") }
+                            }
+                        }
+                        val isClaimant = request.claimantId == currentUser.id
+                        val myConfirmationDone = if (isClaimant) request.ownerConfirmed else request.finderConfirmed
+                        if (request.status == "accepted" && !myConfirmationDone) {
+                            Button(
+                                onClick = { onConfirmHandover(report.id, request.id, "") },
+                                modifier = Modifier.fillMaxWidth().testTag("details_btn_confirm_handover_${request.id}")
+                            ) { Text("أؤكد أنني استلمت / سلّمت الغرض") }
+                        } else if (request.status == "accepted") {
+                            Text("تم تسجيل تأكيدك. ننتظر تأكيد الطرف الآخر.", color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 }
             }

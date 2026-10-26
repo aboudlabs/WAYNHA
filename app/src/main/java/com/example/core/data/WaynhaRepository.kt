@@ -140,6 +140,28 @@ class WaynhaRepository(
         }
     }
 
+    suspend fun refreshLiveConversations(user: UserProfile?): Result<List<Conversation>> {
+        if (!isLiveSupabaseConnected) return Result.success(getConversationsForUser(user))
+        val actualUser = user ?: return Result.failure(SecurityException("يرجى تسجيل الدخول أولاً."))
+        val token = accessToken?.takeIf { it.isNotBlank() }
+            ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+        val result = remoteClient.fetchConversations(actualUser, token)
+        result.onSuccess { live ->
+            conversations.clear()
+            conversations.addAll(live)
+        }
+        return result
+    }
+
+    suspend fun refreshLiveMessages(conversationId: String): Result<List<ChatMessage>> {
+        if (!isLiveSupabaseConnected) return Result.success(messagesByConversation[conversationId]?.toList() ?: emptyList())
+        val token = accessToken?.takeIf { it.isNotBlank() }
+            ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+        val result = remoteClient.fetchMessages(conversationId, token)
+        result.onSuccess { messagesByConversation[conversationId] = it.toMutableList() }
+        return result
+    }
+
     fun getMessagesForConversation(user: UserProfile?, conversationId: String): Result<List<ChatMessage>> {
         val conv = conversations.firstOrNull { it.id == conversationId }
             ?: return Result.failure(IllegalArgumentException("المحادثة غير موجودة."))
@@ -810,7 +832,7 @@ class WaynhaRepository(
         }
     }
 
-    fun startSafeConversationForReport(
+    suspend fun startSafeConversationForReport(
         targetReportId: String,
         matchedReportId: String? = null,
         initialMessage: String = "مرحباً، قد يكون هذا الغرض هو ما أبحث عنه. هل يمكننا التحقق من العلامات المميزة؟"
@@ -833,6 +855,21 @@ class WaynhaRepository(
         val blockedByTarget = blockedUsersByBlocker[targetReport.userId] ?: emptySet()
         if (blocked.contains(targetReport.userId) || blockedByTarget.contains(user.id)) {
             return Result.failure(SecurityException("لا يمكن بدء محادثة لوجود حظر بين الحسابين."))
+        }
+
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            val remoteConversation = remoteClient.createConversation(targetReport, user, matchedReportId, initialMessage, token)
+            if (remoteConversation.isFailure) {
+                return Result.failure(remoteConversation.exceptionOrNull() ?: IOException("تعذر بدء المحادثة الآمنة."))
+            }
+            val conv = remoteConversation.getOrThrow()
+            conversations.removeAll { it.id == conv.id }
+            conversations.add(0, conv)
+            remoteClient.fetchMessages(conv.id, token).onSuccess { msgs -> messagesByConversation[conv.id] = msgs.toMutableList() }
+            persistState()
+            return Result.success(conv)
         }
 
         // منع إنشاء محادثات مكررة لنفس البلاغ ونفس المبادر
@@ -904,7 +941,7 @@ class WaynhaRepository(
         return Result.success(newConv)
     }
 
-    fun sendMessage(
+    suspend fun sendMessage(
         conversationId: String,
         body: String,
         actingUser: UserProfile? = currentUser
@@ -935,6 +972,19 @@ class WaynhaRepository(
         }
 
         val sender = actingUser!!
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            val remoteMessage = remoteClient.insertChatMessage(conversationId, sender.id, body.trim(), token)
+            if (remoteMessage.isFailure) {
+                return Result.failure(remoteMessage.exceptionOrNull() ?: IOException("تعذر إرسال الرسالة."))
+            }
+            val saved = remoteMessage.getOrThrow()
+            messagesByConversation.getOrPut(conversationId) { mutableListOf() }.add(saved)
+            conversations[convIndex] = conv.copy(lastMessagePreview = saved.body, updatedAtText = "الآن")
+            persistState()
+            return Result.success(saved)
+        }
         val msg = ChatMessage(
             id = "msg_${UUID.randomUUID().toString().take(8)}",
             conversationId = conversationId,

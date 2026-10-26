@@ -314,7 +314,7 @@ fun AddOrEditReportScreen(
                 .testTag("form_input_marks")
         )
 
-        // 8. الصور المرفقة (Supabase Storage)
+        // 8. الصور المرفقة
         if (!isEditing) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -325,7 +325,7 @@ fun AddOrEditReportScreen(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "صور الغرض (تُرفع إلى Supabase Storage - report-images)",
+                        text = "صور الغرض",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -381,7 +381,7 @@ fun AddOrEditReportScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "تم الرفع: ${img.storagePath}",
+                                        text = "تمت إضافة الصورة",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = FoundReportEmerald
                                     )
@@ -654,7 +654,7 @@ fun ReportDetailsScreen(
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(
-                                text = "صورة مرفوعة في التخزين: ${img.storagePath}",
+                                text = "صورة مرفقة",
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(10.dp)
                             )

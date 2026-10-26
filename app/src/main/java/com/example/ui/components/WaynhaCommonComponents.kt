@@ -98,31 +98,7 @@ fun HomsScopeBanner(
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
-            Surface(
-                color = if (isOfflineSimulated) {
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
-                } else if (isLiveSupabase) {
-                    FoundReportEmeraldContainer
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-                shape = RoundedCornerShape(50)
-            ) {
-                Text(
-                    text = when {
-                        isOfflineSimulated -> "غير متصل"
-                        isLiveSupabase -> "متصل بـ Supabase"
-                        else -> "معاينة تجريبية واضحة"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = when {
-                        isOfflineSimulated -> MaterialTheme.colorScheme.error
-                        isLiveSupabase -> FoundReportEmerald
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
-            }
+            // Connection/provider status is intentionally hidden from end users.
         }
     }
 }

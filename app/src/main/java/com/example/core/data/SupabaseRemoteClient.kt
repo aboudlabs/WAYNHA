@@ -406,7 +406,15 @@ class SupabaseRemoteClient(
             httpClient.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, "تعذر إرسال طلب الاستعادة.")))
-                else Result.success(JSONObject(body).optString("request_id"))
+                else {
+                    val result = JSONObject(body)
+                    when {
+                        result.optBoolean("rate_limited") -> Result.failure(SecurityException("وصلت للحد الأقصى لمحاولات التحقق. حاول بعد ساعة."))
+                        !result.optBoolean("verified", false) -> Result.failure(SecurityException("إجابات التحقق غير صحيحة. راجع التفاصيل وحاول مجدداً."))
+                        result.optString("request_id").isBlank() -> Result.failure(IOException("لم يتم إنشاء طلب الاستعادة."))
+                        else -> Result.success(result.optString("request_id"))
+                    }
+                }
             }
         } catch (e: Exception) { Result.failure(e) }
     }

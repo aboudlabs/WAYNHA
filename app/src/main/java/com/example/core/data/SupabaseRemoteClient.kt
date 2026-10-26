@@ -207,6 +207,7 @@ class SupabaseRemoteClient(
                     return@withContext Result.failure(IOException(parseSupabaseError(bodyStr, "فشل جلب البلاغات من Supabase")))
                 }
                 val arr = JSONArray(bodyStr)
+                val privateMarks = if (accessToken.isNullOrBlank()) emptyMap() else fetchMyPrivateMarks(accessToken)
                 val list = mutableListOf<ItemReport>()
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
@@ -239,7 +240,7 @@ class SupabaseRemoteClient(
                             neighborhood = obj.optString("neighborhood", "مركز المدينة"),
                             incidentDateText = obj.optString("incident_date", "").take(10),
                             incidentEpochMillis = System.currentTimeMillis(),
-                            distinguishingMarks = obj.optString("distinguishing_marks", ""),
+                            distinguishingMarks = privateMarks[reportId].orEmpty(),
                             status = ReportStatus.fromDb(obj.optString("status", "open")),
                             images = images,
                             isSensitiveMasked = obj.optBoolean("is_sensitive_masked", true),
@@ -268,7 +269,7 @@ class SupabaseRemoteClient(
                 put("description", report.description)
                 put("city", SystemLocationSettings.DEFAULT_CITY_AR)
                 put("neighborhood", report.neighborhood)
-                put("distinguishing_marks", report.distinguishingMarks)
+                put("distinguishing_marks", "")
                 put("status", report.status.dbValue)
                 put("is_sensitive_masked", report.isSensitiveMasked)
             }
@@ -345,6 +346,43 @@ class SupabaseRemoteClient(
         }
     }
 
+
+
+    suspend fun setReportPrivateDetails(reportId: String, marks: String, accessToken: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val payload = JSONObject().put("p_report_id", reportId).put("p_marks", marks.trim())
+                val request = Request.Builder().url("$baseUrl/rest/v1/rpc/set_report_private_details")
+                    .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Content-Type", "application/json")
+                    .post(payload.toString().toRequestBody(jsonMediaType)).build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, "تعذر حفظ العلامات الخاصة.")))
+                    else Result.success(Unit)
+                }
+            } catch (e: Exception) { Result.failure(e) }
+        }
+
+    private fun fetchMyPrivateMarks(accessToken: String): Map<String, String> {
+        return try {
+            val request = Request.Builder().url("$baseUrl/rest/v1/rpc/get_my_report_private_details")
+                .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json")
+                .post("{}".toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return emptyMap()
+                val obj = JSONObject(response.body?.string().orEmpty())
+                val result = mutableMapOf<String, String>()
+                val keys = obj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    result[key] = obj.optString(key, "")
+                }
+                result
+            }
+        } catch (_: Exception) { emptyMap() }
+    }
 
     suspend fun setVerificationQuestions(
         reportId: String,

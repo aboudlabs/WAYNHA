@@ -252,6 +252,19 @@ data class ReportFlag(
     val createdAtText: String
 )
 
+data class RecoveryRequest(
+    val id: String,
+    val reportId: String,
+    val claimantId: String,
+    val finderId: String,
+    val message: String = "",
+    val status: String = "pending",
+    val ownerConfirmed: Boolean = false,
+    val finderConfirmed: Boolean = false,
+    val handoverNotes: String = "",
+    val createdAtText: String = ""
+)
+
 data class RecoveryConfirmation(
     val id: String,
     val reportId: String,

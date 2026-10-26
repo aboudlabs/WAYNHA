@@ -344,7 +344,8 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onAddCategory = { id, nameAr, isSens ->
                                     viewModel.adminAddNewCategory(id, nameAr, isSens)
                                 },
-                                onOpenReportDetails = { viewModel.openReportDetails(it) }
+                                onOpenReportDetails = { viewModel.openReportDetails(it) },
+                                onDismissFlag = { viewModel.adminDismissFlag(it) }
                             )
                         }
                     }

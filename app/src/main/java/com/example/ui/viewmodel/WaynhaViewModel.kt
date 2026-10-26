@@ -157,6 +157,13 @@ class WaynhaViewModel(
                 adminAuditLogs = adminLogs
             )
         }
+        if (isAdmin && repository.isLiveSupabaseConnected) {
+            viewModelScope.launch {
+                repository.refreshLiveReportFlagsForAdmin(user).onSuccess { liveFlags ->
+                    _uiState.update { it.copy(adminFlags = liveFlags) }
+                }
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -633,12 +640,14 @@ class WaynhaViewModel(
     }
 
     fun submitAbuseFlag(reportId: String?, conversationId: String?, reason: String, details: String) {
-        val res = repository.flagReportOrConversation(reportId, conversationId, reason, details)
-        res.onSuccess {
-            refreshAllState()
-            showBanner("تم إرسال بلاغ الإساءة إلى فريق الإدارة لمراجعته.", isError = false)
-        }.onFailure { err ->
-            showBanner(err.message ?: "تعذر إرسال بلاغ المخالفة.", isError = true)
+        viewModelScope.launch {
+            val res = repository.flagReportOrConversation(reportId, conversationId, reason, details)
+            res.onSuccess {
+                refreshAllState()
+                showBanner("تم إرسال البلاغ إلى فريق الإدارة لمراجعته.", isError = false)
+            }.onFailure { err ->
+                showBanner(err.message ?: "تعذر إرسال بلاغ المخالفة.", isError = true)
+            }
         }
     }
 

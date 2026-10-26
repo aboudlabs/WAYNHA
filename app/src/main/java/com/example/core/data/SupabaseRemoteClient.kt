@@ -286,7 +286,7 @@ class SupabaseRemoteClient(
             httpClient.newCall(request).execute().use { response ->
                 val bodyStr = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    return@withContext Result.failure(IOException(parseSupabaseError(bodyStr, "رفض الخادم نشر البلاغ (تحقق من سياسات RLS وحقول حمص)")))
+                    return@withContext Result.failure(IOException(parseSupabaseError(bodyStr, "تعذر نشر البلاغ. تحقق من البيانات والاتصال ثم حاول مرة أخرى.")))
                 }
                 val arr = JSONArray(bodyStr)
                 val createdId = if (arr.length() > 0) arr.getJSONObject(0).optString("id", report.id) else report.id
@@ -806,6 +806,6 @@ class SupabaseRemoteClient(
                 .ifBlank { fallback }
         } catch (_: Exception) {
             fallback
-        }
+        }.replace("Supabase Storage", "خدمة الصور").replace("Supabase", "الخدمة")
     }
 }

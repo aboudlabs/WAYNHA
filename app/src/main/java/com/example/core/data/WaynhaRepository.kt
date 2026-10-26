@@ -436,7 +436,7 @@ class WaynhaRepository(
         persistState()
     }
 
-    fun updateProfile(
+    suspend fun updateProfile(
         fullName: String,
         neighborhood: String?,
         avatarUrl: String?,
@@ -449,12 +449,52 @@ class WaynhaRepository(
         }
         val updated = user.copy(
             fullName = fullName.trim(),
-            city = SystemLocationSettings.DEFAULT_CITY_AR, // المدينة ثابتة دائماً: حمص
+            city = SystemLocationSettings.DEFAULT_CITY_AR,
             neighborhood = neighborhood?.takeIf { it.isNotBlank() },
             avatarUrl = avatarUrl,
             privacyHideLastSeen = privacyHideLastSeen,
             allowMatchNotifications = allowMatchNotifications
         )
+        if (simulateOfflineMode) return Result.failure(IOException("ما قدرنا نحفظ التعديلات لأن الاتصال بالإنترنت مقطوع. حاول مرة ثانية بعد عودة الاتصال."))
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() } ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول من جديد."))
+            val saved = remoteClient.updateProfileInSupabase(updated, token)
+            if (saved.isFailure) return Result.failure(saved.exceptionOrNull() ?: IOException("تعذر حفظ الملف الشخصي."))
+        }
+        profiles[user.id] = updated
+        currentUser = updated
+        persistState()
+        return Result.success(updated)
+    }
+
+
+    suspend fun saveProfileAvatar(bytes: ByteArray): Result<UserProfile> {
+        val user = currentUser ?: return Result.failure(SecurityException("يرجى تسجيل الدخول لتغيير الصورة الشخصية."))
+        if (simulateOfflineMode) return Result.failure(IOException("ما قدرنا نرفع الصورة لأن الاتصال بالإنترنت مقطوع. حاول مرة ثانية بعد عودة الاتصال."))
+        if (!isLiveSupabaseConnected) return Result.failure(IOException("رفع الصورة الشخصية غير متاح حالياً. حاول بعد الاتصال بالخدمة."))
+        val token = accessToken?.takeIf { it.isNotBlank() } ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول من جديد."))
+        val uploaded = remoteClient.uploadImageToSupabaseStorage(user.id, "avatar.jpg", bytes, token)
+        if (uploaded.isFailure) return Result.failure(IOException("ما قدرنا نحفظ الصورة الشخصية. تحقق من اتصال الإنترنت وحاول مرة ثانية."))
+        return updateProfile(user.fullName, user.neighborhood, uploaded.getOrThrow(), user.privacyHideLastSeen, user.allowMatchNotifications)
+    }
+
+    suspend fun updateAccountCredentials(newEmail: String, newPassword: String): Result<UserProfile> {
+        val user = currentUser ?: return Result.failure(SecurityException("يرجى تسجيل الدخول أولاً."))
+        val email = newEmail.trim().lowercase()
+        if (email.isNotBlank() && (!email.contains("@") || !email.substringAfter("@").contains("."))) return Result.failure(IllegalArgumentException("أدخل بريداً إلكترونياً صحيحاً."))
+        if (newPassword.isNotBlank() && newPassword.length < 6) return Result.failure(IllegalArgumentException("كلمة المرور الجديدة يجب أن تتكون من 6 أحرف على الأقل."))
+        if (email.isBlank() && newPassword.isBlank()) return Result.failure(IllegalArgumentException("أدخل بريداً جديداً أو كلمة مرور جديدة."))
+        if (simulateOfflineMode) return Result.failure(IOException("ما قدرنا نحدّث بيانات الدخول بسبب انقطاع الإنترنت."))
+        val changedEmail = email.takeIf { it.isNotBlank() && !it.equals(user.email, true) }
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() } ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول من جديد."))
+            val result = remoteClient.updateAuthCredentials(token, changedEmail, newPassword.takeIf { it.isNotBlank() })
+            if (result.isFailure) return Result.failure(result.exceptionOrNull() ?: IOException("تعذر تحديث بيانات الدخول."))
+        } else {
+            if (changedEmail != null && profiles.values.any { it.id != user.id && it.email.equals(changedEmail, true) }) return Result.failure(IllegalArgumentException("هذا البريد الإلكتروني مستخدم في حساب آخر."))
+            if (newPassword.isNotBlank()) accountPasswords[user.email.lowercase()] = newPassword
+        }
+        val updated = user.copy(email = changedEmail ?: user.email)
         profiles[user.id] = updated
         currentUser = updated
         persistState()
@@ -497,7 +537,7 @@ class WaynhaRepository(
             return Result.failure(IOException("فشل رفع الصورة بسبب انقطاع الاتصال بالإنترنت."))
         }
         if (simulateImageUploadFailure) {
-            return Result.failure(IOException("تعذر رفع الصورة إلى وحدة التخزين (Supabase Storage). يرجى المحاولة مرة أخرى."))
+            return Result.failure(IOException("ما قدرنا نرفع الصورة. تأكد من اتصال الإنترنت وحاول مرة ثانية."))
         }
         if (imageUriOrPath.isBlank()) {
             return Result.failure(IllegalArgumentException("مسار الصورة غير صالح."))
@@ -614,7 +654,7 @@ class WaynhaRepository(
                 ?: return Result.failure(SecurityException("انتهت جلسة الدخول أو لم تكتمل. سجّل الخروج ثم ادخل من جديد قبل نشر البلاغ."))
             val remoteRes = remoteClient.insertReportToSupabase(newReport, token)
             if (remoteRes.isFailure) {
-                return Result.failure(remoteRes.exceptionOrNull() ?: IOException("فشل حفظ البلاغ في Supabase"))
+                return Result.failure(remoteRes.exceptionOrNull() ?: IOException("تعذر حفظ البلاغ. تحقق من اتصال الإنترنت وحاول مرة أخرى."))
             }
             val savedRemote = remoteRes.getOrThrow()
             val privateDetailsRes = remoteClient.setReportPrivateDetails(savedRemote.id, distinguishingMarks, token)

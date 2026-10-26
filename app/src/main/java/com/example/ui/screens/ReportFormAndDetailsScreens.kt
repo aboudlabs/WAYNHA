@@ -302,11 +302,16 @@ fun AddOrEditReportScreen(
         OutlinedTextField(
             value = description,
             onValueChange = { description = it },
-            label = { Text("الوصف التفصيلي (دون كتابة رقم هاتف أو إحداثيات)") },
+            label = { Text("الوصف العام (دون رقم هاتف أو إحداثيات)") },
             minLines = 3,
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("form_input_description")
+        )
+        Text(
+            "لا تكتب العلامات التي تثبت الملكية في الوصف العام؛ احتفظ بها في خانة العلامات المميزة وأسئلة التحقق السرّية.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary
         )
 
         // 7. العلامات المميزة

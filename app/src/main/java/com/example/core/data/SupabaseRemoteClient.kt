@@ -348,6 +348,172 @@ class SupabaseRemoteClient(
 
 
 
+
+    suspend fun fetchConversations(
+        user: UserProfile,
+        accessToken: String
+    ): Result<List<Conversation>> = withContext(Dispatchers.IO) {
+        try {
+            val url = "$baseUrl/rest/v1/conversations?select=*,reports(title,report_type),initiator:profiles!conversations_initiator_id_fkey(full_name),recipient:profiles!conversations_recipient_id_fkey(full_name),messages(body,created_at)&or=(initiator_id.eq.${user.id},recipient_id.eq.${user.id})&order=updated_at.desc"
+            val request = Request.Builder().url(url).addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $accessToken").get().build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر تحميل المحادثات.")))
+                val arr = JSONArray(body)
+                Result.success((0 until arr.length()).map { i ->
+                    val o = arr.getJSONObject(i)
+                    val report = o.optJSONObject("reports")
+                    val initiator = o.optJSONObject("initiator")
+                    val recipient = o.optJSONObject("recipient")
+                    val msgs = o.optJSONArray("messages")
+                    Conversation(
+                        id = o.optString("id"),
+                        reportId = o.optString("report_id"),
+                        reportTitle = report?.optString("title") ?: "بلاغ",
+                        reportType = ReportType.fromDb(report?.optString("report_type") ?: "lost"),
+                        matchedReportId = o.optString("matched_report_id").takeIf { it.isNotBlank() && it != "null" },
+                        initiatorId = o.optString("initiator_id"),
+                        initiatorName = initiator?.optString("full_name") ?: "مستخدم",
+                        recipientId = o.optString("recipient_id"),
+                        recipientName = recipient?.optString("full_name") ?: "مستخدم",
+                        status = o.optString("status", "active"),
+                        lastMessagePreview = if (msgs != null && msgs.length() > 0) msgs.getJSONObject(msgs.length() - 1).optString("body") else "",
+                        updatedAtText = o.optString("updated_at").replace("T", " ").take(16),
+                        unreadCount = 0
+                    )
+                })
+            }
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    suspend fun fetchMessages(conversationId: String, accessToken: String): Result<List<ChatMessage>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val url = "$baseUrl/rest/v1/messages?conversation_id=eq.$conversationId&select=*,profiles(full_name)&order=created_at.asc"
+                val request = Request.Builder().url(url).addHeader("apikey", anonKey)
+                    .addHeader("Authorization", "Bearer $accessToken").get().build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر تحميل رسائل المحادثة.")))
+                    val arr = JSONArray(body)
+                    Result.success((0 until arr.length()).map { i ->
+                        val o = arr.getJSONObject(i)
+                        val created = o.optString("created_at")
+                        ChatMessage(
+                            id = o.optString("id"), conversationId = o.optString("conversation_id"),
+                            senderId = o.optString("sender_id"),
+                            senderName = o.optJSONObject("profiles")?.optString("full_name") ?: "مستخدم",
+                            body = o.optString("body"), isRead = o.optBoolean("is_read"),
+                            createdAtText = created.replace("T", " ").take(16),
+                            createdAtEpochMillis = System.currentTimeMillis()
+                        )
+                    })
+                }
+            } catch (e: Exception) { Result.failure(e) }
+        }
+
+    suspend fun createConversation(
+        report: ItemReport,
+        user: UserProfile,
+        matchedReportId: String?,
+        initialMessage: String,
+        accessToken: String
+    ): Result<Conversation> = withContext(Dispatchers.IO) {
+        try {
+            val query = "$baseUrl/rest/v1/conversations?report_id=eq.${report.id}&select=*,reports(title,report_type),initiator:profiles!conversations_initiator_id_fkey(full_name),recipient:profiles!conversations_recipient_id_fkey(full_name)"
+            val get = Request.Builder().url(query).addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $accessToken").get().build()
+            val existing = httpClient.newCall(get).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر فحص المحادثات السابقة.")))
+                val arr = JSONArray(body)
+                (0 until arr.length()).map { arr.getJSONObject(it) }.firstOrNull { o ->
+                    val a = o.optString("initiator_id")
+                    val b = o.optString("recipient_id")
+                    (a == user.id && b == report.userId) || (a == report.userId && b == user.id)
+                }
+            }
+            if (existing != null) return@withContext Result.success(parseConversation(existing))
+            val payload = JSONObject().put("report_id", report.id)
+                .put("initiator_id", user.id).put("recipient_id", report.userId).put("status", "active")
+            if (!matchedReportId.isNullOrBlank()) payload.put("matched_report_id", matchedReportId)
+            val post = Request.Builder().url("$baseUrl/rest/v1/conversations?select=*,reports(title,report_type),initiator:profiles!conversations_initiator_id_fkey(full_name),recipient:profiles!conversations_recipient_id_fkey(full_name)")
+                .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json").addHeader("Prefer", "return=representation")
+                .post(payload.toString().toRequestBody(jsonMediaType)).build()
+            val convObj = httpClient.newCall(post).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر إنشاء المحادثة.")))
+                val arr = JSONArray(body)
+                if (arr.length() == 0) return@withContext Result.failure(IOException("لم يتم إنشاء المحادثة."))
+                arr.getJSONObject(0)
+            }
+            val convId = convObj.optString("id")
+            val members = JSONArray()
+                .put(JSONObject().put("conversation_id", convId).put("user_id", user.id).put("role", "initiator"))
+                .put(JSONObject().put("conversation_id", convId).put("user_id", report.userId).put("role", "owner"))
+            val memberReq = Request.Builder().url("$baseUrl/rest/v1/conversation_members")
+                .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json").addHeader("Prefer", "return=minimal")
+                .post(members.toString().toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(memberReq).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر تهيئة أعضاء المحادثة.")))
+            }
+            val initial = insertChatMessage(convId, user.id, initialMessage, accessToken)
+            if (initial.isFailure) return@withContext Result.failure(initial.exceptionOrNull() ?: IOException("تعذر إرسال الرسالة الأولى."))
+            Result.success(parseConversation(convObj).copy(lastMessagePreview = initialMessage, updatedAtText = "الآن"))
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    suspend fun insertChatMessage(
+        conversationId: String,
+        senderId: String,
+        bodyText: String,
+        accessToken: String
+    ): Result<ChatMessage> = withContext(Dispatchers.IO) {
+        try {
+            val payload = JSONObject().put("conversation_id", conversationId).put("sender_id", senderId).put("body", bodyText.trim())
+            val request = Request.Builder().url("$baseUrl/rest/v1/messages?select=*,profiles(full_name)")
+                .addHeader("apikey", anonKey).addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json").addHeader("Prefer", "return=representation")
+                .post(payload.toString().toRequestBody(jsonMediaType)).build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر إرسال الرسالة.")))
+                val arr = JSONArray(body)
+                if (arr.length() == 0) return@withContext Result.failure(IOException("لم يتم إرسال الرسالة."))
+                val o = arr.getJSONObject(0)
+                val created = o.optString("created_at")
+                Result.success(ChatMessage(
+                    id = o.optString("id"), conversationId = o.optString("conversation_id"),
+                    senderId = o.optString("sender_id"),
+                    senderName = o.optJSONObject("profiles")?.optString("full_name") ?: "مستخدم",
+                    body = o.optString("body"), isRead = false,
+                    createdAtText = created.replace("T", " ").take(16),
+                    createdAtEpochMillis = System.currentTimeMillis()
+                ))
+            }
+        } catch (e: Exception) { Result.failure(e) }
+    }
+
+    private fun parseConversation(o: JSONObject): Conversation {
+        val report = o.optJSONObject("reports")
+        return Conversation(
+            id = o.optString("id"), reportId = o.optString("report_id"),
+            reportTitle = report?.optString("title") ?: "بلاغ",
+            reportType = ReportType.fromDb(report?.optString("report_type") ?: "lost"),
+            matchedReportId = o.optString("matched_report_id").takeIf { it.isNotBlank() && it != "null" },
+            initiatorId = o.optString("initiator_id"),
+            initiatorName = o.optJSONObject("initiator")?.optString("full_name") ?: "مستخدم",
+            recipientId = o.optString("recipient_id"),
+            recipientName = o.optJSONObject("recipient")?.optString("full_name") ?: "مستخدم",
+            status = o.optString("status", "active"), lastMessagePreview = "",
+            updatedAtText = o.optString("updated_at").replace("T", " ").take(16)
+        )
+    }
+
     suspend fun setReportPrivateDetails(reportId: String, marks: String, accessToken: String): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {

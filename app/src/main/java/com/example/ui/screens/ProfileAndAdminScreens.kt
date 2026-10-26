@@ -100,6 +100,7 @@ fun ProfileAndSettingsScreen(
     val user = uiState.currentUser
 
     if (user == null) {
+        val guestUriHandler = LocalUriHandler.current
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -127,7 +128,7 @@ fun ProfileAndSettingsScreen(
             }
             Spacer(modifier = Modifier.height(12.dp))
             OutlinedButton(
-                onClick = { LocalUriHandler.current.openUri("https://aboudweb.onrender.com") },
+                onClick = { guestUriHandler.openUri("https://aboudweb.onrender.com") },
                 modifier = Modifier.fillMaxWidth().testTag("profile_btn_developer_website_guest")
             ) { Text("عن المطوّر • ABODLABS") }
         }

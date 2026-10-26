@@ -1,5 +1,17 @@
 package com.example.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import androidx.compose.ui.window.Dialog
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,12 +88,10 @@ fun ProfileAndSettingsScreen(
     onOpenConversations: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenAdminDashboard: () -> Unit,
-    onOpenSplashScreen: () -> Unit,
-    onOpenOnboardingScreen: () -> Unit,
     onToggleDarkMode: () -> Unit,
-    onToggleOfflineSim: (Boolean) -> Unit,
-    onToggleUploadFailureSim: (Boolean) -> Unit,
     onRequestDeletion: () -> Unit,
+    onUpdateCredentials: (email: String, newPassword: String) -> Unit,
+    onSaveAvatar: (uri: Uri, offsetX: Float, offsetY: Float) -> Unit,
     onLogout: () -> Unit,
     onGoToLogin: () -> Unit
 ) {
@@ -121,6 +131,42 @@ fun ProfileAndSettingsScreen(
     var neighborhood by remember(user.id, user.neighborhood) { mutableStateOf(user.neighborhood ?: "الإنشاءات") }
     var hideLastSeen by remember(user.id, user.privacyHideLastSeen) { mutableStateOf(user.privacyHideLastSeen) }
     var allowMatchNotifs by remember(user.id, user.allowMatchNotifications) { mutableStateOf(user.allowMatchNotifications) }
+    var email by remember(user.id, user.email) { mutableStateOf(user.email) }
+    var newPassword by remember(user.id) { mutableStateOf("") }
+    var selectedAvatarUri by remember(user.id) { mutableStateOf<Uri?>(null) }
+    var dragX by remember(selectedAvatarUri) { mutableStateOf(0f) }
+    var dragY by remember(selectedAvatarUri) { mutableStateOf(0f) }
+    val uriHandler = LocalUriHandler.current
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        selectedAvatarUri = uri
+        dragX = 0f
+        dragY = 0f
+    }
+
+    if (selectedAvatarUri != null) {
+        Dialog(onDismissRequest = { selectedAvatarUri = null }) {
+            Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("قص الصورة الشخصية", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("حرّك الصورة داخل الإطار حتى تضبط القصّة، ثم أكّد.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(modifier = Modifier.size(220.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).pointerInput(selectedAvatarUri) {
+                        detectDragGestures { change, drag ->
+                            change.consume()
+                            dragX = (dragX + drag.x).coerceIn(-100f, 100f)
+                            dragY = (dragY + drag.y).coerceIn(-100f, 100f)
+                        }
+                    }, contentAlignment = Alignment.Center) {
+                        AsyncImage(model = selectedAvatarUri, contentDescription = "معاينة قص الصورة", contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(280.dp).offset { IntOffset(dragX.roundToInt(), dragY.roundToInt()) })
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { selectedAvatarUri = null }) { Text("إلغاء") }
+                        Button(onClick = { selectedAvatarUri?.let { onSaveAvatar(it, dragX / 100f, dragY / 100f) }; selectedAvatarUri = null }) { Text("تأكيد الصورة") }
+                    }
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -138,19 +184,12 @@ fun ProfileAndSettingsScreen(
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "صورة الحساب",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(34.dp)
-                        )
+                    Box(modifier = Modifier.size(72.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                        if (!user.avatarUrl.isNullOrBlank()) {
+                            AsyncImage(model = user.avatarUrl, contentDescription = "الصورة الشخصية", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clip(CircleShape))
+                        } else {
+                            Icon(imageVector = Icons.Default.Person, contentDescription = "الصورة الشخصية", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
+                        }
                     }
                     Spacer(modifier = Modifier.width(14.dp))
                     Column {
@@ -207,13 +246,11 @@ fun ProfileAndSettingsScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Button(
-                    onClick = { onSaveProfile(fullName, neighborhood, hideLastSeen, allowMatchNotifs) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("profile_btn_save")
-                ) {
-                    Text("حفظ بيانات الملف الشخصي")
+                Button(onClick = { onSaveProfile(fullName, neighborhood, hideLastSeen, allowMatchNotifs) }, modifier = Modifier.fillMaxWidth().testTag("profile_btn_save")) { Text("حفظ بيانات الملف الشخصي") }
+                OutlinedButton(onClick = { avatarPicker.launch("image/*") }, modifier = Modifier.fillMaxWidth().testTag("profile_btn_change_avatar")) {
+                    Icon(Icons.Default.Person, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("تغيير الصورة الشخصية")
                 }
             }
         }
@@ -358,75 +395,29 @@ fun ProfileAndSettingsScreen(
             }
         }
 
-        // 4. معاينة شاشات البداية والتعريف واختبار حالات انقطاع الشبكة
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = "أدوات فحص الشاشات وحالات الشبكة",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onOpenSplashScreen,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("btn_preview_splash")
-                    ) {
-                        Text("شاشة البداية")
-                    }
-                    OutlinedButton(
-                        onClick = onOpenOnboardingScreen,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("btn_preview_onboarding")
-                    ) {
-                        Text("شاشة التعريف")
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("اختبار حالة عدم الاتصال (Offline)", style = MaterialTheme.typography.bodyMedium)
-                    Switch(
-                        checked = uiState.isOfflineSimulated,
-                        onCheckedChange = onToggleOfflineSim,
-                        modifier = Modifier.testTag("switch_offline_sim")
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("اختبار حالة فشل رفع الصور", style = MaterialTheme.typography.bodyMedium)
-                    Switch(
-                        checked = uiState.isImageUploadFailureSimulated,
-                        onCheckedChange = onToggleUploadFailureSim,
-                        modifier = Modifier.testTag("switch_upload_fail_sim")
-                    )
-                }
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("أمان الحساب وبيانات الدخول", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("البريد الإلكتروني") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("profile_input_email"))
+                OutlinedTextField(value = newPassword, onValueChange = { newPassword = it }, label = { Text("كلمة المرور الجديدة (اختياري)") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("profile_input_new_password"))
+                Text("اترك كلمة المرور فارغة إذا كنت تريد تغيير البريد فقط.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Button(onClick = {
+                    onUpdateCredentials(email.takeIf { it.isNotBlank() && !it.equals(user.email, ignoreCase = true) }.orEmpty(), newPassword)
+                    newPassword = ""
+                }, modifier = Modifier.fillMaxWidth().testTag("profile_btn_update_credentials")) { Text("تحديث بيانات الدخول") }
             }
         }
 
-        // 5. تسجيل الخروج وطلب حذف الحساب والبيانات
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("عن المطوّر", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("ABODLABS", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold)
+                Text("مطور مستقل أعمل على بناء تطبيقات وتجارب رقمية تركّز على البساطة، الجودة، وحل المشكلات اليومية بالتقنية.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedButton(onClick = { uriHandler.openUri("https://aboudweb.onrender.com") }, modifier = Modifier.fillMaxWidth().testTag("profile_btn_developer_website")) { Text("زيارة موقع المطوّر") }
+            }
+        }
+
+        // تسجيل الخروج وطلب حذف الحساب والبيانات
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),

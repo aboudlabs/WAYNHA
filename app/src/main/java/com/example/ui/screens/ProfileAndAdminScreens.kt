@@ -134,7 +134,7 @@ fun ProfileAndSettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("عن المطوّر", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("ABODLABS", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold)
+                    Text("ABOUD WEB", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold)
                     Text("مطور مستقل أعمل على بناء تطبيقات وتجارب رقمية تركّز على البساطة، الجودة، وحل المشكلات اليومية بالتقنية.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedButton(onClick = { guestUriHandler.openUri("https://aboudweb.onrender.com") }, modifier = Modifier.fillMaxWidth().testTag("profile_btn_developer_website_guest")) {
                         Text("زيارة موقع المطوّر")
@@ -429,7 +429,7 @@ fun ProfileAndSettingsScreen(
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("عن المطوّر", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("ABODLABS", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold)
+                Text("ABOUD WEB", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold)
                 Text("مطور مستقل أعمل على بناء تطبيقات وتجارب رقمية تركّز على البساطة، الجودة، وحل المشكلات اليومية بالتقنية.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick = { uriHandler.openUri("https://aboudweb.onrender.com") }, modifier = Modifier.fillMaxWidth().testTag("profile_btn_developer_website")) { Text("زيارة موقع المطوّر") }
             }

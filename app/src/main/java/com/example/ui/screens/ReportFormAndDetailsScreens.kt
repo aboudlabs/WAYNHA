@@ -716,7 +716,10 @@ fun ReportDetailsScreen(
                     Text("العلامات المميزة:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = report.distinguishingMarks,
+                        text = if (canManage) report.distinguishingMarks
+                            else if (report.reportType == ReportType.FOUND)
+                                "التفاصيل الدقيقة محفوظة لدى ناشر البلاغ للتحقق من الملكية، ولا تظهر للعامة."
+                            else "تُحفظ العلامات التفصيلية للتحقق من ملكية الغرض.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

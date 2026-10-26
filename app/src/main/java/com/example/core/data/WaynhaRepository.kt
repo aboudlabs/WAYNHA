@@ -67,6 +67,7 @@ class WaynhaRepository(
     private val reportFlags = mutableListOf<ReportFlag>()
     private val blockedUsersByBlocker = mutableMapOf<String, MutableSet<String>>()
     private val recoveryConfirmations = mutableListOf<RecoveryConfirmation>()
+    private val verificationAnswersByReport = mutableMapOf<String, List<Pair<String, String>>>()
     private val adminAuditLogs = mutableListOf<AdminAuditLog>()
     private val categories = InitialCategories.all.toMutableList()
 
@@ -416,7 +417,8 @@ class WaynhaRepository(
         incidentEpochMillis: Long = System.currentTimeMillis(),
         distinguishingMarks: String,
         uploadedImages: List<ReportImage> = emptyList(),
-        isSensitiveMasked: Boolean = true
+        isSensitiveMasked: Boolean = true,
+        verificationQuestions: List<Pair<String, String>> = emptyList()
     ): Result<ItemReport> {
         val user = currentUser ?: return Result.failure(SecurityException("يجب تسجيل الدخول لنشر بلاغ."))
         if (user.isSuspended) {
@@ -442,6 +444,15 @@ class WaynhaRepository(
             ValidationResult.Valid -> Unit
         }
 
+        if (reportType == ReportType.FOUND) {
+            val validQuestions = verificationQuestions.filter { it.first.isNotBlank() && it.second.isNotBlank() }
+            if (validQuestions.isEmpty()) {
+                return Result.failure(IllegalArgumentException("أضف سؤال تحقق واحداً مع إجابته السرّية على الأقل قبل نشر بلاغ الموجود."))
+            }
+            if (validQuestions.size > 3 || validQuestions.any { it.first.trim().length < 5 || it.second.trim().length < 2 }) {
+                return Result.failure(IllegalArgumentException("أضف من سؤال إلى ثلاثة أسئلة، وتأكد أن كل سؤال وإجابة مكتملان."))
+            }
+        }
         val reportId = "rep_${UUID.randomUUID().toString().take(8)}"
         val linkedImages = uploadedImages.map { it.copy(reportId = reportId) }
         val newReport = ItemReport(
@@ -470,6 +481,12 @@ class WaynhaRepository(
                 return Result.failure(remoteRes.exceptionOrNull() ?: IOException("فشل حفظ البلاغ في Supabase"))
             }
             val savedRemote = remoteRes.getOrThrow()
+            if (reportType == ReportType.FOUND) {
+                val questionsRes = remoteClient.setVerificationQuestions(savedRemote.id, verificationQuestions, accessToken!!)
+                if (questionsRes.isFailure) {
+                    return Result.failure(IOException("تم نشر البلاغ، لكن لم تُحفظ أسئلة التحقق. لا تسلّم الغرض قبل ضبط أسئلة التحقق من جديد."))
+                }
+            }
             reports.add(0, savedRemote)
             recalculateMatchesAndNotify(savedRemote)
             persistState()
@@ -477,6 +494,9 @@ class WaynhaRepository(
         }
 
         reports.add(0, newReport)
+        if (reportType == ReportType.FOUND) {
+            verificationAnswersByReport[newReport.id] = verificationQuestions.filter { it.first.isNotBlank() && it.second.isNotBlank() }
+        }
         recalculateMatchesAndNotify(newReport)
         persistState()
         return Result.success(newReport)

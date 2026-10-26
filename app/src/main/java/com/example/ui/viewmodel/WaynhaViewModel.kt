@@ -702,13 +702,25 @@ class WaynhaViewModel(
     }
 
     fun adminHideReport(reportId: String, flagId: String?, notes: String) {
-        val user = _uiState.value.currentUser
-        val res = repository.adminHideFlaggedReport(user, reportId, flagId, notes)
-        res.onSuccess {
-            refreshAllState()
-            showBanner("تم إخفاء المحتوى المخالف وتسجيل العملية في سجل التدقيق الإداري.", isError = false)
-        }.onFailure { err ->
-            showBanner(err.message ?: "عملية غير مصرح بها.", isError = true)
+        viewModelScope.launch {
+            val user = _uiState.value.currentUser
+            val res = repository.adminHideFlaggedReport(user, reportId, flagId, notes)
+            res.onSuccess {
+                refreshAllState()
+                showBanner("تم إخفاء المحتوى المخالف وتسجيل العملية في سجل التدقيق الإداري.", isError = false)
+            }.onFailure { err ->
+                showBanner(err.message ?: "عملية غير مصرح بها.", isError = true)
+            }
+        }
+    }
+
+    fun adminDismissFlag(flagId: String, notes: String = "بعد المراجعة لم تثبت المخالفة") {
+        viewModelScope.launch {
+            val result = repository.adminDismissReportFlag(_uiState.value.currentUser, flagId, notes)
+            result.onSuccess {
+                refreshAllState()
+                showBanner("تم إغلاق بلاغ المخالفة بعد المراجعة وتوثيق القرار.", false)
+            }.onFailure { showBanner(it.message ?: "تعذر حفظ قرار المراجعة.", true) }
         }
     }
 

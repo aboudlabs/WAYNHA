@@ -188,7 +188,7 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onPickImageUri = { uri, blurred -> viewModel.uploadDraftImageFromUri(uri, blurred) },
                                 onAttachSampleImage = { label, blurred -> viewModel.attachSampleVerifiedPhoto(label, blurred) },
                                 onRemoveDraftImage = { viewModel.removeDraftImage(it) },
-                                onSubmitNew = { type, title, cat, desc, hood, date, marks, masked ->
+                                onSubmitNew = { type, title, cat, desc, hood, date, marks, masked, verificationQuestions ->
                                     viewModel.submitNewReport(type, title, cat, desc, hood, date, marks, masked, verificationQuestions)
                                 },
                                 onSubmitUpdate = { _, _, _, _, _, _ -> },
@@ -204,7 +204,7 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onPickImageUri = { uri, blurred -> viewModel.uploadDraftImageFromUri(uri, blurred) },
                                 onAttachSampleImage = { label, blurred -> viewModel.attachSampleVerifiedPhoto(label, blurred) },
                                 onRemoveDraftImage = { viewModel.removeDraftImage(it) },
-                                onSubmitNew = { type, title, cat, desc, hood, date, marks, masked ->
+                                onSubmitNew = { type, title, cat, desc, hood, date, marks, masked, verificationQuestions ->
                                     viewModel.submitNewReport(type, title, cat, desc, hood, date, marks, masked, verificationQuestions)
                                 },
                                 onSubmitUpdate = { _, _, _, _, _, _ -> },
@@ -220,7 +220,7 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onPickImageUri = { uri, blurred -> viewModel.uploadDraftImageFromUri(uri, blurred) },
                                 onAttachSampleImage = { label, blurred -> viewModel.attachSampleVerifiedPhoto(label, blurred) },
                                 onRemoveDraftImage = { viewModel.removeDraftImage(it) },
-                                onSubmitNew = { _, _, _, _, _, _, _, _ -> },
+                                onSubmitNew = { _, _, _, _, _, _, _, _, _ -> },
                                 onSubmitUpdate = { id, title, cat, desc, hood, marks ->
                                     viewModel.submitReportUpdate(id, title, cat, desc, hood, marks)
                                 },

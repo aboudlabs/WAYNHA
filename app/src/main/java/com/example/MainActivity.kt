@@ -295,7 +295,8 @@ fun WaynhaRootApp(viewModel: WaynhaViewModel) {
                                 onBlockOtherUser = { viewModel.blockUserFromConversation(it) },
                                 onFlagConversation = { convId, reason ->
                                     viewModel.submitAbuseFlag(null, convId, reason, "")
-                                }
+                                },
+                                onRefreshConversation = { viewModel.refreshActiveConversation() }
                             )
                         }
 

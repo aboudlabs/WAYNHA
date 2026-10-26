@@ -14,6 +14,7 @@ import com.example.core.model.Conversation
 import com.example.core.model.DateFilterOption
 import com.example.core.model.ItemReport
 import com.example.core.model.RecoveryConfirmation
+import com.example.core.model.RecoveryRequest
 import com.example.core.model.ReportCategory
 import com.example.core.model.ReportFlag
 import com.example.core.model.ReportImage
@@ -73,6 +74,8 @@ data class WaynhaUiState(
     val selectedReportId: String? = null,
     val selectedReportMatches: List<ReportMatch> = emptyList(),
     val selectedReportRecoveries: List<RecoveryConfirmation> = emptyList(),
+    val verificationQuestions: List<Pair<String, String>> = emptyList(),
+    val recoveryRequests: List<RecoveryRequest> = emptyList(),
     val editingReport: ItemReport? = null,
     val draftUploadedImages: List<ReportImage> = emptyList(),
     val searchFilter: SearchFilterState = SearchFilterState(),
@@ -208,6 +211,11 @@ class WaynhaViewModel(
             )
         }
         refreshAllState()
+        viewModelScope.launch {
+            val questions = repository.getVerificationQuestions(reportId).getOrDefault(emptyList())
+            val requests = repository.getRecoveryRequestsForReport(reportId).getOrDefault(emptyList())
+            _uiState.update { it.copy(verificationQuestions = questions, recoveryRequests = requests) }
+        }
     }
 
     fun openAddReportScreen(type: ReportType) {
@@ -631,6 +639,39 @@ class WaynhaViewModel(
             showBanner("تم إرسال بلاغ الإساءة إلى فريق الإدارة لمراجعته.", isError = false)
         }.onFailure { err ->
             showBanner(err.message ?: "تعذر إرسال بلاغ المخالفة.", isError = true)
+        }
+    }
+
+    fun submitRecoveryRequest(reportId: String, answers: List<Pair<String, String>>, message: String) {
+        if (_uiState.value.isSubmitting) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            val result = repository.submitRecoveryRequest(reportId, answers, message)
+            _uiState.update { it.copy(isSubmitting = false) }
+            result.onSuccess {
+                showBanner("تم إرسال طلب الاستعادة بعد التحقق من الإجابات.", false)
+                openReportDetails(reportId)
+            }.onFailure { showBanner(it.message ?: "تعذر إرسال طلب الاستعادة.", true) }
+        }
+    }
+
+    fun reviewRecoveryRequest(reportId: String, requestId: String, accept: Boolean) {
+        viewModelScope.launch {
+            val result = repository.reviewRecoveryRequest(requestId, accept)
+            result.onSuccess {
+                showBanner(if (accept) "تم قبول طلب الاستعادة. نسّقوا التسليم داخل المحادثة." else "تم رفض طلب الاستعادة.", false)
+                openReportDetails(reportId)
+            }.onFailure { showBanner(it.message ?: "تعذر تحديث طلب الاستعادة.", true) }
+        }
+    }
+
+    fun confirmRecoveryHandover(reportId: String, requestId: String, notes: String) {
+        viewModelScope.launch {
+            val result = repository.confirmRecoveryHandover(requestId, notes)
+            result.onSuccess {
+                showBanner("تم تسجيل تأكيدك. لن تكتمل الاستعادة حتى يؤكد الطرف الآخر أيضاً.", false)
+                openReportDetails(reportId)
+            }.onFailure { showBanner(it.message ?: "تعذر تأكيد التسليم.", true) }
         }
     }
 

@@ -442,6 +442,7 @@ class WaynhaViewModel(
         incidentDateText: String,
         distinguishingMarks: String,
         isSensitiveMasked: Boolean,
+        verificationQuestions: List<Pair<String, String>> = emptyList(),
         cityOverrideForTesting: String = SystemLocationSettings.DEFAULT_CITY_AR
     ) {
         if (_uiState.value.isSubmitting) return
@@ -457,7 +458,8 @@ class WaynhaViewModel(
                 incidentDateText = incidentDateText,
                 distinguishingMarks = distinguishingMarks,
                 uploadedImages = _uiState.value.draftUploadedImages,
-                isSensitiveMasked = isSensitiveMasked
+                isSensitiveMasked = isSensitiveMasked,
+                verificationQuestions = verificationQuestions
             )
             _uiState.update { it.copy(isSubmitting = false, isLoading = false) }
             res.onSuccess { created ->

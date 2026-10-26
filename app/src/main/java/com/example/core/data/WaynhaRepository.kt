@@ -660,6 +660,9 @@ class WaynhaRepository(
         if (!WaynhaSecurityValidator.canModifyReport(user, existing)) {
             return Result.failure(SecurityException("رفض الخادم (RLS): لا يمكنك إغلاق بلاغ مستخدم آخر."))
         }
+        if (markRecovered && existing.reportType == ReportType.FOUND) {
+            return Result.failure(IllegalStateException("لا يمكن تأكيد استعادة الغرض من طرف واحد. استخدم طلب الاستعادة وتأكيد التسليم من الطرفين."))
+        }
 
         val newStatus = if (markRecovered) ReportStatus.RECOVERED else ReportStatus.CLOSED
         val updated = existing.copy(status = newStatus)

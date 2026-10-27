@@ -47,6 +47,7 @@ const server = http.createServer((req, res) => {
   delete headers.connection;
   delete headers["content-length"];
   headers.host = upstream.host;
+  headers["accept-encoding"] = "identity";
   headers.apikey = headers.apikey || ANON_KEY;
   headers["x-forwarded-host"] = req.headers.host || "";
   headers["x-forwarded-proto"] = "https";

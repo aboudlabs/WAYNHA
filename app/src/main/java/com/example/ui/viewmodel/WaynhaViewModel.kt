@@ -767,14 +767,25 @@ class WaynhaViewModel(
             refreshAllState()
             return
         }
+        if (isRefreshingActiveConversation) return
+        isRefreshingActiveConversation = true
         viewModelScope.launch {
-            val user = _uiState.value.currentUser
-            if (user != null) repository.refreshLiveConversations(user)
-            repository.refreshLiveMessages(conversationId).onSuccess { messages ->
-                _uiState.update { state ->
-                    if (state.activeConversationId == conversationId) state.copy(activeConversationMessages = messages) else state
-                }
-            }.onFailure { showBanner(it.message ?: "تعذر تحديث الرسائل.", true) }
+            try {
+                val user = _uiState.value.currentUser
+                if (user != null) repository.refreshLiveConversations(user)
+                repository.refreshLiveMessages(conversationId).onSuccess { messages ->
+                    _uiState.update { state ->
+                        if (state.activeConversationId == conversationId) {
+                            state.copy(
+                                activeConversationMessages = messages,
+                                conversations = repository.getConversationsForUser(state.currentUser)
+                            )
+                        } else state
+                    }
+                }.onFailure { showBanner(it.message ?: "تعذر تحديث الرسائل.", true) }
+            } finally {
+                isRefreshingActiveConversation = false
+            }
         }
     }
 

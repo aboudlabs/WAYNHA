@@ -2,6 +2,10 @@ package com.example.core.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.android.gms.tasks.Tasks
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.example.core.domain.ValidationResult
 import com.example.core.domain.WaynhaMatchingEngine
 import com.example.core.domain.WaynhaSecurityValidator
@@ -341,22 +345,25 @@ class WaynhaRepository(
 
         if (isLiveSupabaseConnected) {
             val res = remoteClient.signUpWithEmail(cleanEmail, password, fullName.trim())
-            return res.map { session ->
-                accessToken = session.accessToken
-                val profile = UserProfile(
-                    id = session.userId,
-                    email = session.email,
-                    fullName = session.fullName,
-                    city = SystemLocationSettings.DEFAULT_CITY_AR,
-                    neighborhood = neighborhood,
-                    role = UserRole.USER,
-                    createdAt = nowFormatted()
-                )
-                profiles[profile.id] = profile
-                currentUser = profile
-                persistState()
-                profile
+            if (res.isFailure) {
+                return Result.failure(res.exceptionOrNull() ?: IOException("تعذر إنشاء الحساب."))
             }
+            val session = res.getOrThrow()
+            accessToken = session.accessToken
+            val profile = UserProfile(
+                id = session.userId,
+                email = session.email,
+                fullName = session.fullName,
+                city = SystemLocationSettings.DEFAULT_CITY_AR,
+                neighborhood = neighborhood,
+                role = UserRole.USER,
+                createdAt = nowFormatted()
+            )
+            profiles[profile.id] = profile
+            currentUser = profile
+            syncPushToken(profile.id)
+            persistState()
+            return Result.success(profile)
         }
 
         if (profiles.values.any { it.email.equals(cleanEmail, ignoreCase = true) }) {
@@ -411,6 +418,7 @@ class WaynhaRepository(
             }
             profiles[profile.id] = profile
             currentUser = profile
+            syncPushToken(profile.id)
             refreshLiveReports()
             persistState()
             return Result.success(profile)
@@ -428,6 +436,22 @@ class WaynhaRepository(
         currentUser = existing
         persistState()
         return Result.success(existing)
+    }
+
+
+    private suspend fun syncPushToken(userId: String) {
+        val token = accessToken?.takeIf { it.isNotBlank() } ?: return
+        if (!isLiveSupabaseConnected) return
+        try {
+            val fcmToken = withContext(Dispatchers.IO) {
+                Tasks.await(FirebaseMessaging.getInstance().token)
+            }
+            if (!fcmToken.isNullOrBlank()) {
+                remoteClient.upsertDevicePushToken(userId, fcmToken, token)
+            }
+        } catch (_: Exception) {
+            // Push setup must not block sign-in if Google Play services or network is unavailable.
+        }
     }
 
     fun logout() {

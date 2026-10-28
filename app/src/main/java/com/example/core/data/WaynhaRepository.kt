@@ -58,6 +58,7 @@ class WaynhaRepository(
     var simulateImageUploadFailure: Boolean = false
 
     private var accessToken: String? = null
+    private var refreshToken: String? = null
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
 
     // الجداول المحفوظة في الذاكرة + التخزين الدائم
@@ -349,7 +350,11 @@ class WaynhaRepository(
                 return Result.failure(res.exceptionOrNull() ?: IOException("تعذر إنشاء الحساب."))
             }
             val session = res.getOrThrow()
+            if (session.accessToken.isBlank()) {
+                return Result.failure(IOException("تم إنشاء الحساب بنجاح، وأرسلنا رابط التحقق إلى بريدك الإلكتروني. افتح الرسالة واضغط «تأكيد البريد» ثم ارجع إلى وينها وسجّل الدخول."))
+            }
             accessToken = session.accessToken
+            refreshToken = session.refreshToken
             val profile = UserProfile(
                 id = session.userId,
                 email = session.email,
@@ -402,6 +407,7 @@ class WaynhaRepository(
             }
             val session = sessionRes.getOrThrow()
             accessToken = session.accessToken
+            refreshToken = session.refreshToken
             val profileRes = remoteClient.fetchUserProfile(session.userId, session.accessToken)
             val profile = profileRes.getOrElse {
                 UserProfile(
@@ -456,8 +462,30 @@ class WaynhaRepository(
 
     fun logout() {
         accessToken = null
+        refreshToken = null
         currentUser = null
         persistState()
+    }
+
+    suspend fun restorePersistedSession(): Result<UserProfile?> {
+        if (!isLiveSupabaseConnected) return Result.success(currentUser)
+        val savedUser = currentUser ?: return Result.success(null)
+        val savedRefreshToken = refreshToken?.takeIf { it.isNotBlank() }
+            ?: return Result.success(savedUser)
+        val refreshed = remoteClient.refreshSession(savedRefreshToken)
+        if (refreshed.isFailure) return Result.failure(refreshed.exceptionOrNull() ?: IOException("تعذر تجديد جلسة الدخول."))
+        val session = refreshed.getOrThrow()
+        accessToken = session.accessToken
+        refreshToken = session.refreshToken
+        val profile = remoteClient.fetchUserProfile(session.userId, session.accessToken)
+            .getOrElse { savedUser }
+            .copy(email = session.email)
+        currentUser = profile
+        profiles[profile.id] = profile
+        syncPushToken(profile.id)
+        refreshLiveReports()
+        persistState()
+        return Result.success(profile)
     }
 
     suspend fun updateProfile(
@@ -1332,6 +1360,13 @@ class WaynhaRepository(
         val sp = prefs ?: return
         val editor = sp.edit()
         editor.putString("current_user_id", currentUser?.id)
+        editor.putString("access_token", accessToken)
+        editor.putString("refresh_token", refreshToken)
+        editor.putString("current_user_email", currentUser?.email)
+        editor.putString("current_user_name", currentUser?.fullName)
+        editor.putString("current_user_neighborhood", currentUser?.neighborhood)
+        editor.putString("current_user_avatar", currentUser?.avatarUrl)
+        editor.putString("current_user_role", currentUser?.role?.dbValue)
 
         val savedObj = JSONObject()
         savedReportIdsByUser.forEach { (uId, set) ->
@@ -1380,6 +1415,27 @@ class WaynhaRepository(
 
     private fun loadPersistedSessionOnly() {
         val sp = prefs ?: return
+        accessToken = sp.getString("access_token", null)
+        refreshToken = sp.getString("refresh_token", null)
+        val savedUserId = sp.getString("current_user_id", null)
+        if (!savedUserId.isNullOrBlank()) {
+            val email = sp.getString("current_user_email", "").orEmpty()
+            val name = sp.getString("current_user_name", "").orEmpty()
+            if (name.isNotBlank()) {
+                val restoredUser = UserProfile(
+                    id = savedUserId,
+                    email = email,
+                    fullName = name,
+                    city = SystemLocationSettings.DEFAULT_CITY_AR,
+                    neighborhood = sp.getString("current_user_neighborhood", null),
+                    avatarUrl = sp.getString("current_user_avatar", null),
+                    role = UserRole.fromDb(sp.getString("current_user_role", "user") ?: "user"),
+                    createdAt = nowFormatted()
+                )
+                currentUser = restoredUser
+                profiles[restoredUser.id] = restoredUser
+            }
+        }
         val savedJson = sp.getString("saved_reports_json", null)
         if (!savedJson.isNullOrBlank()) {
             try {

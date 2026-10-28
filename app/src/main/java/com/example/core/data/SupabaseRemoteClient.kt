@@ -797,6 +797,40 @@ class SupabaseRemoteClient(
             } catch (e: Exception) { Result.failure(e) }
         }
 
+
+    suspend fun upsertDevicePushToken(userId: String, fcmToken: String, accessToken: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            if (!isConfigured || userId.isBlank() || fcmToken.isBlank() || accessToken.isBlank()) {
+                return@withContext Result.failure(IllegalArgumentException("بيانات تسجيل الإشعارات غير مكتملة."))
+            }
+            try {
+                val payload = JSONObject().apply {
+                    put("user_id", userId)
+                    put("fcm_token", fcmToken)
+                    put("platform", "android")
+                    put("updated_at", java.time.Instant.now().toString())
+                }
+                val request = Request.Builder()
+                    .url("$baseUrl/rest/v1/device_push_tokens?on_conflict=fcm_token")
+                    .addHeader("apikey", anonKey)
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Content-Type", "application/json")
+                    .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
+                    .post(payload.toString().toRequestBody(jsonMediaType))
+                    .build()
+                httpClient.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) {
+                        Result.failure(IOException(parseSupabaseError(body, "تعذر تفعيل إشعارات الجهاز.")))
+                    } else {
+                        Result.success(Unit)
+                    }
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
     private fun parseSupabaseError(rawBody: String, fallback: String): String {
         return try {
             val json = JSONObject(rawBody)

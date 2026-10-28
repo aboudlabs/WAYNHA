@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,7 @@ import com.example.ui.screens.SplashScreen
 import com.example.ui.theme.WaynhaTheme
 import com.example.ui.viewmodel.WaynhaScreen
 import com.example.ui.viewmodel.WaynhaViewModel
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,6 +68,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WaynhaRootApp(viewModel: WaynhaViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(uiState.currentScreen, uiState.currentUser?.id) {
+        if (uiState.currentScreen == WaynhaScreen.HOME && uiState.currentUser != null) {
+            while (true) {
+                viewModel.refreshHomeFeed()
+                delay(15000)
+            }
+        }
+    }
 
     BackHandler(enabled = uiState.currentScreen != WaynhaScreen.HOME) {
         viewModel.navigateBack()

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "544276669899",
+    "project_id": "waynha-328eb",
+    "storage_bucket": "waynha-328eb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:544276669899:android:53dc842f5225493bc5024e",
+        "android_client_info": {
+          "package_name": "com.aistudio.waynha.hmssyr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcAN8WI0s6XYs8nXVsaDGD1hlDrBwxwPQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

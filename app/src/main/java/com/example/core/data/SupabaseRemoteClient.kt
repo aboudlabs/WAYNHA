@@ -817,6 +817,70 @@ class SupabaseRemoteClient(
             } catch (e: Exception) { Result.failure(e) }
         }
 
+    suspend fun updateOwnedReport(
+        reportId: String,
+        title: String,
+        categoryId: String,
+        description: String,
+        neighborhood: String,
+        distinguishingMarks: String,
+        accessToken: String
+    ): Result<Unit> = callReportRpc(
+        "update_owned_report",
+        JSONObject()
+            .put("p_report_id", reportId)
+            .put("p_title", title.trim())
+            .put("p_category_id", categoryId)
+            .put("p_description", description.trim())
+            .put("p_neighborhood", neighborhood.trim())
+            .put("p_distinguishing_marks", distinguishingMarks.trim()),
+        accessToken,
+        "تعذر حفظ تعديلات البلاغ."
+    )
+
+    suspend fun setOwnedReportStatus(
+        reportId: String,
+        status: String,
+        notes: String,
+        accessToken: String
+    ): Result<Unit> = callReportRpc(
+        "set_owned_report_status",
+        JSONObject().put("p_report_id", reportId).put("p_status", status).put("p_notes", notes),
+        accessToken,
+        "تعذر حفظ حالة البلاغ."
+    )
+
+    suspend fun deleteOwnedReport(reportId: String, accessToken: String): Result<Unit> =
+        callReportRpc(
+            "delete_owned_report",
+            JSONObject().put("p_report_id", reportId),
+            accessToken,
+            "تعذر حذف البلاغ."
+        )
+
+    private suspend fun callReportRpc(
+        name: String,
+        payload: JSONObject,
+        accessToken: String,
+        fallbackMessage: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url("$baseUrl/rest/v1/rpc/$name")
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer $accessToken")
+                .addHeader("Content-Type", "application/json")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) Result.failure(IOException(parseSupabaseError(body, fallbackMessage)))
+                else Result.success(Unit)
+            }
+        } catch (e: Exception) {
+            Result.failure(IOException(fallbackMessage, e))
+        }
+    }
+
     suspend fun reviewRecoveryRequest(requestId: String, accept: Boolean, accessToken: String): Result<Unit> =
         callRecoveryRpc("review_recovery_request", JSONObject().put("p_request_id", requestId).put("p_accept", accept), accessToken)
 

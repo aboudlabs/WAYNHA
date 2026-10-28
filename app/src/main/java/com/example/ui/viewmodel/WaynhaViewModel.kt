@@ -804,6 +804,7 @@ class WaynhaViewModel(
             _uiState.update { it.copy(isSubmitting = false) }
             res.onSuccess {
                 refreshAllState()
+                refreshActiveConversation()
             }.onFailure { err ->
                 showBanner(err.message ?: "فشل إرسال الرسالة.", isError = true)
             }

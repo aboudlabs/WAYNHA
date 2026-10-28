@@ -1416,6 +1416,7 @@ class WaynhaRepository(
                 put("incidentEpochMillis", r.incidentEpochMillis)
                 put("distinguishingMarks", r.distinguishingMarks)
                 put("status", r.status.dbValue)
+                put("resolutionNotes", r.resolutionNotes)
                 put("isSensitiveMasked", r.isSensitiveMasked)
                 put("createdAtText", r.createdAtText)
                 put("createdAtEpochMillis", r.createdAtEpochMillis)
@@ -1517,6 +1518,7 @@ class WaynhaRepository(
                                 incidentEpochMillis = obj.optLong("incidentEpochMillis", System.currentTimeMillis()),
                                 distinguishingMarks = obj.optString("distinguishingMarks"),
                                 status = ReportStatus.fromDb(obj.optString("status", "open")),
+                                resolutionNotes = obj.optString("resolutionNotes", ""),
                                 images = imgs,
                                 isSensitiveMasked = obj.optBoolean("isSensitiveMasked", true),
                                 createdAtText = obj.getString("createdAtText"),

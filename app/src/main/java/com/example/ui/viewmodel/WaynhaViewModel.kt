@@ -113,6 +113,19 @@ class WaynhaViewModel(
 
     init {
         refreshAllState()
+        if (repository.isLiveSupabaseConnected) {
+            viewModelScope.launch {
+                repository.restorePersistedSession()
+                    .onSuccess { refreshAllState() }
+            }
+        }
+    }
+
+    fun refreshHomeFeed() {
+        if (!repository.isLiveSupabaseConnected) return
+        viewModelScope.launch {
+            repository.refreshLiveReports().onSuccess { refreshAllState() }
+        }
     }
 
     fun completeIntroAndNavigate(target: WaynhaScreen) {
@@ -378,7 +391,12 @@ class WaynhaViewModel(
                 showBanner("تم إنشاء حسابك بنجاح في مدينة حمص يا ${user.fullName}!", isError = false)
                 navigateTo(WaynhaScreen.HOME, clearHistory = true)
             }.onFailure { err ->
-                showBanner(err.message ?: "تعذر إنشاء الحساب.", isError = true)
+                val message = err.message ?: "تعذر إنشاء الحساب."
+                if (message.contains("تم إنشاء الحساب بنجاح")) {
+                    showBanner(message, isError = false)
+                } else {
+                    showBanner(message, isError = true)
+                }
             }
         }
     }

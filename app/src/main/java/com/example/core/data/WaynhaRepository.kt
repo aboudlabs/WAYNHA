@@ -819,7 +819,10 @@ class WaynhaRepository(
             )
             if (remoteSave.isFailure) return Result.failure(remoteSave.exceptionOrNull() ?: IOException("تعذر حفظ حالة البلاغ."))
         }
-        val updated = existing.copy(status = newStatus)
+        val updated = existing.copy(
+            status = newStatus,
+            resolutionNotes = handoverNotes.trim().ifBlank { existing.resolutionNotes }
+        )
         reports[index] = updated
 
         // إيقاف المطابقات والتنبيهات الجديدة للبلاغ المغلق وأرشفة المطابقات المعلقة

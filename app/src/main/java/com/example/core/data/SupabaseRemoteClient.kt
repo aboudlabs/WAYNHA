@@ -75,7 +75,7 @@ class SupabaseRemoteClient(
                 })
             }
             val request = Request.Builder()
-                .url("$baseUrl/auth/v1/signup?redirect_to=" + java.net.URLEncoder.encode("https://aboudlabs.github.io/WAYNHA/email-verified.html", "UTF-8"))
+                .url("$baseUrl/auth/v1/signup?redirect_to=" + java.net.URLEncoder.encode("https://aboudlabs.github.io/WAYNHA/", "UTF-8"))
                 .addHeader("apikey", anonKey)
                 .addHeader("Content-Type", "application/json")
                 .post(payload.toString().toRequestBody(jsonMediaType))

@@ -168,7 +168,8 @@ data class ItemReport(
     val images: List<ReportImage> = emptyList(),
     val isSensitiveMasked: Boolean = true,
     val createdAtText: String,
-    val createdAtEpochMillis: Long
+    val createdAtEpochMillis: Long,
+    val resolutionNotes: String = ""
 ) {
     val category: ReportCategory
         get() = InitialCategories.byId(categoryId)

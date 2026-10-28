@@ -475,9 +475,11 @@ class SupabaseRemoteClient(
     suspend fun fetchMessages(conversationId: String, accessToken: String): Result<List<ChatMessage>> =
         withContext(Dispatchers.IO) {
             try {
-                val url = "$baseUrl/rest/v1/messages?conversation_id=eq.$conversationId&select=*,profiles(full_name)&order=created_at.asc"
+                val url = "$baseUrl/rest/v1/messages?conversation_id=eq.$conversationId&select=*,profiles!messages_sender_id_fkey(full_name)&order=created_at.asc,id.asc"
                 val request = Request.Builder().url(url).addHeader("apikey", anonKey)
-                    .addHeader("Authorization", "Bearer $accessToken").get().build()
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Cache-Control", "no-cache")
+                    .get().build()
                 httpClient.newCall(request).execute().use { response ->
                     val body = response.body?.string().orEmpty()
                     if (!response.isSuccessful) return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر تحميل رسائل المحادثة.")))

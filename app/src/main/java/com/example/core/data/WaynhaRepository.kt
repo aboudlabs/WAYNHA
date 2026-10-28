@@ -738,7 +738,7 @@ class WaynhaRepository(
         return Result.success(newReport)
     }
 
-    fun updateReport(
+    suspend fun updateReport(
         reportId: String,
         title: String,
         categoryId: String,
@@ -779,13 +779,22 @@ class WaynhaRepository(
             neighborhood = neighborhood.trim().ifBlank { existing.neighborhood },
             distinguishingMarks = distinguishingMarks.trim()
         )
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            val remoteSave = remoteClient.updateOwnedReport(
+                reportId, updated.title, updated.categoryId, updated.description,
+                updated.neighborhood, updated.distinguishingMarks, token
+            )
+            if (remoteSave.isFailure) return Result.failure(remoteSave.exceptionOrNull() ?: IOException("تعذر حفظ تعديلات البلاغ."))
+        }
         reports[existingIndex] = updated
         recalculateMatchesAndNotify(updated)
         persistState()
         return Result.success(updated)
     }
 
-    fun closeOrRecoverReport(
+    suspend fun closeOrRecoverReport(
         reportId: String,
         markRecovered: Boolean,
         handoverNotes: String = ""
@@ -802,6 +811,14 @@ class WaynhaRepository(
         }
 
         val newStatus = if (markRecovered) ReportStatus.RECOVERED else ReportStatus.CLOSED
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            val remoteSave = remoteClient.setOwnedReportStatus(
+                reportId, if (markRecovered) "recovered" else "closed", handoverNotes, token
+            )
+            if (remoteSave.isFailure) return Result.failure(remoteSave.exceptionOrNull() ?: IOException("تعذر حفظ حالة البلاغ."))
+        }
         val updated = existing.copy(status = newStatus)
         reports[index] = updated
 
@@ -862,12 +879,18 @@ class WaynhaRepository(
         return Result.success(updated)
     }
 
-    fun deleteReport(reportId: String): Result<Unit> {
+    suspend fun deleteReport(reportId: String): Result<Unit> {
         val user = currentUser ?: return Result.failure(SecurityException("يجب تسجيل الدخول أولاً."))
         val existing = reports.firstOrNull { it.id == reportId }
             ?: return Result.failure(IllegalArgumentException("البلاغ غير موجود."))
         if (!WaynhaSecurityValidator.canModifyReport(user, existing)) {
             return Result.failure(SecurityException("رفض الخادم (RLS): لا يمكنك حذف بلاغات الآخرين."))
+        }
+        if (isLiveSupabaseConnected) {
+            val token = accessToken?.takeIf { it.isNotBlank() }
+                ?: return Result.failure(SecurityException("انتهت جلسة الدخول. سجّل الدخول مجدداً."))
+            val remoteDelete = remoteClient.deleteOwnedReport(reportId, token)
+            if (remoteDelete.isFailure) return Result.failure(remoteDelete.exceptionOrNull() ?: IOException("تعذر حذف البلاغ."))
         }
         reports.removeAll { it.id == reportId }
         reportMatches.removeAll { it.lostReportId == reportId || it.foundReportId == reportId }

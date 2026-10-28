@@ -808,7 +808,6 @@ class SupabaseRemoteClient(
                     put("user_id", userId)
                     put("fcm_token", fcmToken)
                     put("platform", "android")
-                    put("updated_at", java.time.Instant.now().toString())
                 }
                 val request = Request.Builder()
                     .url("$baseUrl/rest/v1/device_push_tokens?on_conflict=fcm_token")

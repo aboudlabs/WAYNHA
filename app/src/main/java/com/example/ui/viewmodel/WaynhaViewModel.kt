@@ -99,6 +99,7 @@ class WaynhaViewModel(
         WaynhaRepository(application.applicationContext)
     )
 
+    private var isRefreshingActiveConversation = false
     private val introPrefs = application.getSharedPreferences("waynha_intro", android.content.Context.MODE_PRIVATE)
     private val _uiState = MutableStateFlow(
         WaynhaUiState(

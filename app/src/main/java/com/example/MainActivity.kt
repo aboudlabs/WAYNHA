@@ -69,11 +69,28 @@ class MainActivity : ComponentActivity() {
 fun WaynhaRootApp(viewModel: WaynhaViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.currentScreen, uiState.currentUser?.id) {
-        if (uiState.currentScreen == WaynhaScreen.HOME && uiState.currentUser != null) {
+    LaunchedEffect(uiState.currentScreen, uiState.currentUser?.id, uiState.activeConversationId, uiState.selectedReportId) {
+        if (uiState.currentUser != null && uiState.isLiveSupabaseConnected) {
             while (true) {
-                viewModel.refreshHomeFeed()
-                delay(15000)
+                when (uiState.currentScreen) {
+                    WaynhaScreen.CHAT_ROOM -> {
+                        viewModel.refreshActiveConversation()
+                        delay(2000)
+                    }
+                    WaynhaScreen.CONVERSATIONS -> {
+                        viewModel.refreshAllState()
+                        delay(5000)
+                    }
+                    WaynhaScreen.REPORT_DETAILS -> {
+                        viewModel.refreshSelectedReportDetails()
+                        delay(5000)
+                    }
+                    WaynhaScreen.HOME, WaynhaScreen.MY_REPORTS, WaynhaScreen.SAVED_REPORTS -> {
+                        viewModel.refreshHomeFeed()
+                        delay(5000)
+                    }
+                    else -> delay(10000)
+                }
             }
         }
     }

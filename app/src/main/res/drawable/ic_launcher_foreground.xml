@@ -4,19 +4,16 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Outer soft ring -->
     <path
-        android:fillColor="#337FC4BC"
-        android:pathData="M54,12A42,42 0,1 1,54 96A42,42 0,1 1,54 12Z" />
-    <path
-        android:fillColor="#176D65"
-        android:pathData="M54,18A36,36 0,1 1,54 90A36,36 0,1 1,54 18Z" />
+        android:fillColor="#26FFFFFF"
+        android:pathData="M54,24A30,30 0 1,1 24,54A30,30 0 0,1 54,24Z" />
+    <!-- Location Pin + Search Silhouette -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,23C38.2,23 25.5,35.7 25.5,51.5C25.5,70.8 54,94 54,94C54,94 82.5,70.8 82.5,51.5C82.5,35.7 69.8,23 54,23Z" />
-    <path
-        android:fillColor="#176D65"
-        android:pathData="M54,40C44.6,40 37,47.6 37,57C37,66.4 44.6,74 54,74C63.4,74 71,66.4 71,57C71,47.6 63.4,40 54,40Z" />
+        android:pathData="M54,28C42.95,28 34,36.95 34,48C34,61.5 54,80 54,80C54,80 74,61.5 74,48C74,36.95 65.05,28 54,28ZM54,56C49.58,56 46,52.42 46,48C46,43.58 49.58,40 54,40C58.42,40 62,43.58 62,48C62,52.42 58.42,56 54,56Z" />
+    <!-- Warm Golden Center Beacon -->
     <path
         android:fillColor="#F59E0B"
-        android:pathData="M54,44A13,13 0,1 1,54 70A13,13 0,1 1,54 44Z" />
+        android:pathData="M54,43A5,5 0 1,1 49,48A5,5 0 0,1 54,43Z" />
 </vector>

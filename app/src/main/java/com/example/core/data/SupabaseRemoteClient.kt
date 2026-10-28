@@ -236,7 +236,7 @@ class SupabaseRemoteClient(
         try {
             val token = accessToken?.takeIf { it.isNotBlank() } ?: anonKey
             val request = Request.Builder()
-                .url("$baseUrl/rest/v1/reports?city=eq.%D8%AD%D9%85%D8%B5&select=*,profiles(full_name),report_images(*)&order=created_at.desc")
+                .url("$baseUrl/rest/v1/reports?city=eq.%D8%AD%D9%85%D8%B5&select=*,profiles!reports_user_id_fkey(full_name),report_images!report_images_report_id_fkey(*)&order=created_at.desc")
                 .addHeader("apikey", anonKey)
                 .addHeader("Authorization", "Bearer $token")
                 .get()

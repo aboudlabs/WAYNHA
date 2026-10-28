@@ -745,19 +745,25 @@ class WaynhaViewModel(
 
     fun refreshSelectedReportDetails() {
         val reportId = _uiState.value.selectedReportId ?: return
-        if (!repository.isLiveSupabaseConnected) {
-            refreshAllState()
+        viewModelScope.launch { reloadReportDetailState(reportId) }
+    }
+
+    private suspend fun reloadReportDetailState(reportId: String) {
+        if (repository.isLiveSupabaseConnected) {
+            repository.refreshLiveReports()
+        }
+        refreshAllState()
+        val questions = repository.getVerificationQuestions(reportId).getOrDefault(emptyList())
+        val requestsResult = repository.getRecoveryRequestsForReport(reportId)
+        if (requestsResult.isFailure) {
+            showBanner(requestsResult.exceptionOrNull()?.message ?: "تعذر تحديث حالة طلب الاستعادة.", true)
             return
         }
-        viewModelScope.launch {
-            repository.refreshLiveReports().onSuccess { refreshAllState() }
-            val questions = repository.getVerificationQuestions(reportId).getOrDefault(emptyList())
-            val requests = repository.getRecoveryRequestsForReport(reportId).getOrDefault(emptyList())
-            _uiState.update { state ->
-                if (state.selectedReportId == reportId) {
-                    state.copy(verificationQuestions = questions, recoveryRequests = requests)
-                } else state
-            }
+        val requests = requestsResult.getOrDefault(emptyList())
+        _uiState.update { state ->
+            if (state.selectedReportId == reportId) {
+                state.copy(verificationQuestions = questions, recoveryRequests = requests)
+            } else state
         }
     }
 
@@ -844,8 +850,8 @@ class WaynhaViewModel(
         viewModelScope.launch {
             val result = repository.reviewRecoveryRequest(requestId, accept)
             result.onSuccess {
-                showBanner(if (accept) "تم قبول طلب الاستعادة. نسّقوا التسليم داخل المحادثة." else "تم رفض طلب الاستعادة.", false)
-                openReportDetails(reportId)
+                reloadReportDetailState(reportId)
+                showBanner(if (accept) "تم حفظ قبول طلب الاستعادة. نسّقوا التسليم داخل المحادثة." else "تم حفظ رفض طلب الاستعادة.", false)
             }.onFailure { showBanner(it.message ?: "تعذر تحديث طلب الاستعادة.", true) }
         }
     }
@@ -854,9 +860,15 @@ class WaynhaViewModel(
         viewModelScope.launch {
             val result = repository.confirmRecoveryHandover(requestId, notes)
             result.onSuccess {
-                showBanner("تم تسجيل تأكيدك. لن تكتمل الاستعادة حتى يؤكد الطرف الآخر أيضاً.", false)
-                openReportDetails(reportId)
-            }.onFailure { showBanner(it.message ?: "تعذر تأكيد التسليم.", true) }
+                reloadReportDetailState(reportId)
+                val request = repository.getRecoveryRequestsForReport(reportId).getOrDefault(emptyList())
+                    .firstOrNull { it.id == requestId }
+                if (request?.status == "confirmed") {
+                    showBanner("تم حفظ تأكيد الطرفين، واكتملت الاستعادة.", false)
+                } else {
+                    showBanner("تم حفظ تأكيدك. ننتظر تأكيد الطرف الآخر.", false)
+                }
+            }.onFailure { showBanner(it.message ?: "تعذر حفظ تأكيد التسليم.", true) }
         }
     }
 

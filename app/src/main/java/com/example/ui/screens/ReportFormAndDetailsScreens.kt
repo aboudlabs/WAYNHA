@@ -672,6 +672,15 @@ fun ReportDetailsScreen(
                     }
                 }
 
+                if (report.resolutionNotes.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "ملاحظات التسليم: ${report.resolutionNotes}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Text(

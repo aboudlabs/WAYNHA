@@ -284,6 +284,7 @@ class SupabaseRemoteClient(
                             distinguishingMarks = privateMarks[reportId].orEmpty(),
                             status = ReportStatus.fromDb(obj.optString("status", "open")),
                             images = images,
+                            resolutionNotes = obj.optString("resolution_notes", ""),
                             isSensitiveMasked = obj.optBoolean("is_sensitive_masked", true),
                             createdAtText = obj.optString("created_at", "").take(10),
                             createdAtEpochMillis = System.currentTimeMillis() - (i * 60_000L)

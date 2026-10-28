@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "verification-page/**"
+      - "index.html"
       - ".github/workflows/deploy-verification-page.yml"
   workflow_dispatch:
 

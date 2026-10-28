@@ -106,7 +106,8 @@ class WaynhaViewModel(
                 WaynhaScreen.HOME
             } else {
                 WaynhaScreen.SPLASH
-            }
+            },
+            isDarkMode = introPrefs.getBoolean("dark_mode", false)
         )
     )
     val uiState: StateFlow<WaynhaUiState> = _uiState.asStateFlow()
@@ -328,7 +329,9 @@ class WaynhaViewModel(
     }
 
     fun toggleDarkMode() {
-        _uiState.update { it.copy(isDarkMode = !it.isDarkMode) }
+        val enabled = !_uiState.value.isDarkMode
+        introPrefs.edit().putBoolean("dark_mode", enabled).apply()
+        _uiState.update { it.copy(isDarkMode = enabled) }
     }
 
     fun toggleOfflineSimulation(enabled: Boolean) {

@@ -609,51 +609,70 @@ class WaynhaViewModel(
         distinguishingMarks: String
     ) {
         if (_uiState.value.isSubmitting) return
-        _uiState.update { it.copy(isSubmitting = true) }
-        val res = repository.updateReport(
-            reportId = reportId,
-            title = title,
-            categoryId = categoryId,
-            description = description,
-            neighborhood = neighborhood,
-            distinguishingMarks = distinguishingMarks
-        )
-        _uiState.update { it.copy(isSubmitting = false) }
-        res.onSuccess { updated ->
-            refreshAllState()
-            showBanner("تم حفظ تعديلات البلاغ بنجاح.", isError = false)
-            openReportDetails(updated.id)
-        }.onFailure { err ->
-            showBanner(err.message ?: "تعذر تعديل البلاغ.", isError = true)
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            val res = repository.updateReport(
+                reportId = reportId,
+                title = title,
+                categoryId = categoryId,
+                description = description,
+                neighborhood = neighborhood,
+                distinguishingMarks = distinguishingMarks
+            )
+            _uiState.update { it.copy(isSubmitting = false) }
+            res.onSuccess { updated ->
+                if (repository.isLiveSupabaseConnected) {
+                    repository.refreshLiveReports()
+                }
+                refreshAllState()
+                showBanner("تم حفظ تعديلات البلاغ على الخادم بنجاح.", isError = false)
+                openReportDetails(updated.id)
+            }.onFailure { err ->
+                showBanner(err.message ?: "تعذر تعديل البلاغ.", isError = true)
+            }
         }
     }
 
     fun closeOrRecoverReport(reportId: String, markRecovered: Boolean, notes: String = "") {
         if (_uiState.value.isSubmitting) return
-        _uiState.update { it.copy(isSubmitting = true) }
-        val res = repository.closeOrRecoverReport(reportId, markRecovered, notes)
-        _uiState.update { it.copy(isSubmitting = false) }
-        res.onSuccess {
-            refreshAllState()
-            val msg = if (markRecovered) {
-                "تم تأكيد استعادة الغرض وإغلاق البلاغ وإيقاف المطابقات الجديدة."
-            } else {
-                "تم إغلاق البلاغ وإيقاف التنبيهات الجديدة له."
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            val res = repository.closeOrRecoverReport(reportId, markRecovered, notes)
+            _uiState.update { it.copy(isSubmitting = false) }
+            res.onSuccess {
+                if (repository.isLiveSupabaseConnected) {
+                    repository.refreshLiveReports()
+                }
+                refreshAllState()
+                val msg = if (markRecovered) {
+                    "تم حفظ حالة الاستعادة وإغلاق البلاغ."
+                } else {
+                    "تم حفظ إغلاق البلاغ وإيقاف المطابقات الجديدة."
+                }
+                showBanner(msg, isError = false)
+                openReportDetails(reportId)
+            }.onFailure { err ->
+                showBanner(err.message ?: "تعذر تحديث حالة البلاغ.", isError = true)
             }
-            showBanner(msg, isError = false)
-        }.onFailure { err ->
-            showBanner(err.message ?: "تعذر تحديث حالة البلاغ.", isError = true)
         }
     }
 
     fun deleteReport(reportId: String) {
-        val res = repository.deleteReport(reportId)
-        res.onSuccess {
-            refreshAllState()
-            showBanner("تم حذف البلاغ نهائياً.", isError = false)
-            navigateTo(WaynhaScreen.MY_REPORTS, clearHistory = true)
-        }.onFailure { err ->
-            showBanner(err.message ?: "لا تملك صلاحية حذف هذا البلاغ.", isError = true)
+        if (_uiState.value.isSubmitting) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSubmitting = true) }
+            val res = repository.deleteReport(reportId)
+            _uiState.update { it.copy(isSubmitting = false) }
+            res.onSuccess {
+                if (repository.isLiveSupabaseConnected) {
+                    repository.refreshLiveReports()
+                }
+                refreshAllState()
+                showBanner("تم حذف البلاغ من قاعدة البيانات.", isError = false)
+                navigateTo(WaynhaScreen.MY_REPORTS, clearHistory = true)
+            }.onFailure { err ->
+                showBanner(err.message ?: "لا تملك صلاحية حذف هذا البلاغ.", isError = true)
+            }
         }
     }
 

@@ -743,6 +743,24 @@ class WaynhaViewModel(
         }
     }
 
+    fun refreshSelectedReportDetails() {
+        val reportId = _uiState.value.selectedReportId ?: return
+        if (!repository.isLiveSupabaseConnected) {
+            refreshAllState()
+            return
+        }
+        viewModelScope.launch {
+            repository.refreshLiveReports().onSuccess { refreshAllState() }
+            val questions = repository.getVerificationQuestions(reportId).getOrDefault(emptyList())
+            val requests = repository.getRecoveryRequestsForReport(reportId).getOrDefault(emptyList())
+            _uiState.update { state ->
+                if (state.selectedReportId == reportId) {
+                    state.copy(verificationQuestions = questions, recoveryRequests = requests)
+                } else state
+            }
+        }
+    }
+
     fun refreshActiveConversation() {
         val conversationId = _uiState.value.activeConversationId ?: return
         if (!repository.isLiveSupabaseConnected) {
@@ -750,6 +768,8 @@ class WaynhaViewModel(
             return
         }
         viewModelScope.launch {
+            val user = _uiState.value.currentUser
+            if (user != null) repository.refreshLiveConversations(user)
             repository.refreshLiveMessages(conversationId).onSuccess { messages ->
                 _uiState.update { state ->
                     if (state.activeConversationId == conversationId) state.copy(activeConversationMessages = messages) else state

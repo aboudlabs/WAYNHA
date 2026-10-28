@@ -27,7 +27,8 @@ data class SupabaseAuthSession(
     val accessToken: String,
     val userId: String,
     val email: String,
-    val fullName: String
+    val fullName: String,
+    val refreshToken: String = ""
 )
 
 /**
@@ -74,7 +75,7 @@ class SupabaseRemoteClient(
                 })
             }
             val request = Request.Builder()
-                .url("$baseUrl/auth/v1/signup")
+                .url("$baseUrl/auth/v1/signup?redirect_to=" + java.net.URLEncoder.encode("https://aboudlabs.github.io/WAYNHA/email-verified.html", "UTF-8"))
                 .addHeader("apikey", anonKey)
                 .addHeader("Content-Type", "application/json")
                 .post(payload.toString().toRequestBody(jsonMediaType))
@@ -97,7 +98,8 @@ class SupabaseRemoteClient(
                         accessToken = accessToken,
                         userId = userId,
                         email = email.trim(),
-                        fullName = fullName.trim()
+                        fullName = fullName.trim(),
+                        refreshToken = json.optString("refresh_token", "")
                     )
                 )
             }
@@ -142,7 +144,46 @@ class SupabaseRemoteClient(
                         accessToken = accessToken,
                         userId = userId,
                         email = email.trim(),
-                        fullName = fullName
+                        fullName = fullName,
+                        refreshToken = json.optString("refresh_token", "")
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun refreshSession(refreshToken: String): Result<SupabaseAuthSession> = withContext(Dispatchers.IO) {
+        if (!isConfigured || refreshToken.isBlank()) {
+            return@withContext Result.failure(IllegalStateException("لا توجد جلسة محفوظة قابلة للتجديد."))
+        }
+        try {
+            val payload = JSONObject().put("refresh_token", refreshToken)
+            val request = Request.Builder()
+                .url("$baseUrl/auth/v1/token?grant_type=refresh_token")
+                .addHeader("apikey", anonKey)
+                .addHeader("Content-Type", "application/json")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+            httpClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(IOException(parseSupabaseError(body, "تعذر تجديد جلسة الدخول.")))
+                }
+                val json = JSONObject(body)
+                val user = json.getJSONObject("user")
+                val email = user.optString("email")
+                val metadata = user.optJSONObject("user_metadata")
+                val name = metadata?.optString("full_name")?.takeIf { it.isNotBlank() }
+                    ?: email.substringBefore("@")
+                Result.success(
+                    SupabaseAuthSession(
+                        accessToken = json.optString("access_token"),
+                        userId = user.optString("id"),
+                        email = email,
+                        fullName = name,
+                        refreshToken = json.optString("refresh_token", refreshToken)
                     )
                 )
             }
